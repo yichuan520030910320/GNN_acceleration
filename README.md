@@ -9,22 +9,8 @@ Requirements
 pip install requests torchmetrics
 ```
 
-How to run
--------
 
-### Full graph training
 
-Run with following (available dataset: "cora", "citeseer", "pubmed")
-```bash
-python3 train_full.py --dataset cora --gpu 0    # full graph
-```
-
-Results:
-```
-* cora: ~0.8330 
-* citeseer: ~0.7110
-* pubmed: ~0.7830
-```
 
 ### Minibatch training for node classification
 
@@ -50,3 +36,17 @@ the folowing command is used to run the algorithm that put the entire graph on t
 python3 node_classcification_variant.py
 tensorboard --logdir=/home/ycwang/GNN/log
 ````
+
+### Full graph training
+
+Run with following (available dataset: "cora", "citeseer", "pubmed")
+```bash
+python3 train_full.py --dataset cora --gpu 0    # full graph
+```
+
+Results:
+```
+* cora: ~0.8330 
+* citeseer: ~0.7110
+* pubmed: ~0.7830
+```
