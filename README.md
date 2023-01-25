@@ -1,10 +1,6 @@
-Inductive Representation Learning on Large Graphs (GraphSAGE)
+(GraphSAGE)
 ============
 
-- Paper link: [http://papers.nips.cc/paper/6703-inductive-representation-learning-on-large-graphs.pdf](http://papers.nips.cc/paper/6703-inductive-representation-learning-on-large-graphs.pdf)
-- Author's code repo: [https://github.com/williamleif/graphsage-simple](https://github.com/williamleif/graphsage-simple)
-
-For advanced usages, including training with multi-gpu/multi-node, and PyTorch Lightning, etc., more examples can be found in [advanced](https://github.com/dmlc/dgl/tree/master/examples/pytorch/graphsage/advanced) and [dist](https://github.com/dmlc/dgl/tree/master/examples/pytorch/graphsage/dist) directory.
 
 Requirements
 ------------
@@ -33,34 +29,24 @@ Results:
 ### Minibatch training for node classification
 
 Train w/ mini-batch sampling in mixed mode (CPU+GPU) for node classification on "ogbn-products"
+the following example shows the algorithm for node classification
+the process is
+1. take a mini-batch of training nodes and sample a subgraph from these nodes
+2. gather node / edge features used by the subgraph from CPU memory and
+   copy into GPU
+3. GNN model forward & backward & weight updates
+
 
 ```bash
 python3 node_classification.py
+tensorboard --logdir=/home/ycwang/GNN/log2 
+# change your path depending on on_trace_ready=torch.profiler.tensorboard_trace_handler
 ```
 
-Results:
+
+
+the folowing command is used to run the algorithm that put the entire graph on the GPU before running training process
 ```
-Test Accuracy: 0.7632
-```
-
-### PyTorch Lightning for node classification
-
-Train w/ mini-batch sampling for node classification with PyTorch Lightning on OGB-products.
-Works with both single GPU and multiple GPUs:
-
-```bash
-python3 lightning/node_classification.py
-```
-
-### Minibatch training for link prediction
-
-Train w/ mini-batch sampling for link prediction on OGB-citation2:
-
-```bash
-python3 link_pred.py
-```
-
-Results (10 epochs):
-```
-Test MRR: 0.7386
-```
+python3 node_classcification_variant.py
+tensorboard --logdir=/home/ycwang/GNN/log
+````
