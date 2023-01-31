@@ -26,7 +26,7 @@ the following command is used to train ogbn-papers100M that can occupy the full 
 
 184s or so
 ```bash
-python3 big_dataset_sample_on_CPU.py
+python3 big_dataset.py
 tensorboard --logdir=/YOUR_PATH/log
 # change your path depending on on_trace_ready=torch.profiler.tensorboard_trace_handler
 ```
@@ -34,7 +34,7 @@ tensorboard --logdir=/YOUR_PATH/log
 this one will load the graph minibatch on the GPU after the function of _next_ in iterator 
 179s or so
 ```bash
-python3 big_dataset.py
+python3 big_dataset_sample_on_CPU.py
 tensorboard --logdir=/YOUR_PATH/log
 # change your path depending on on_trace_ready=torch.profiler.tensorboard_trace_handler
 ```
