@@ -22,7 +22,25 @@ the process is
    copy into GPU
 3. GNN model forward & backward & weight updates
 
+the following command is used to train ogbn-papers100M that can occupy the full GPU　so we must use minibatch to avoid out of memory (A100 has 40G　but the dataset is 50 G or so)
 
+184s or so
+```bash
+python3 big_dataset_sample_on_CPU.py
+tensorboard --logdir=/YOUR_PATH/log
+# change your path depending on on_trace_ready=torch.profiler.tensorboard_trace_handler
+```
+
+this one will load the graph minibatch on the GPU after the function of _next_ in iterator 
+179s or so
+```bash
+python3 big_dataset.py
+tensorboard --logdir=/YOUR_PATH/log
+# change your path depending on on_trace_ready=torch.profiler.tensorboard_trace_handler
+```
+
+
+the following command is used to train ogbn-products
 ```bash
 python3 node_classification.py
 tensorboard --logdir=/home/ycwang/GNN/log2 
