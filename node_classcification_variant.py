@@ -90,12 +90,12 @@ def train(args, device, g, dataset, model):
                               prefetch_labels=['label'])
     use_uva = (args.mode == 'mixed')
     train_dataloader = DataLoader(g, train_idx, sampler, device=device,
-                                  batch_size=102400, shuffle=True,
+                                  batch_size=10240, shuffle=True,
                                   drop_last=False, num_workers=0,
                                   use_uva=use_uva)
 
     val_dataloader = DataLoader(g, val_idx, sampler, device=device,
-                                batch_size=102400, shuffle=True,
+                                batch_size=10240, shuffle=True,
                                 drop_last=False, num_workers=0,
                                 use_uva=use_uva)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
@@ -115,9 +115,9 @@ def train(args, device, g, dataset, model):
             loss.backward()
             opt.step()
             total_loss += loss.item()
-        # acc = evaluate(model, g, val_dataloader)
-        # print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
-        #       .format(epoch, total_loss / (it+1), acc.item()))
+        acc = evaluate(model, g, val_dataloader)
+        print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
+              .format(epoch, total_loss / (it+1), acc.item()))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -159,7 +159,7 @@ if __name__ == '__main__':
             ],
             profile_memory=True,
             schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler('./log/node_classification_dgl_bs102400_cuda_first_new'),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./log3/node_classification_dgl_bs10240_cuda_first_newnew'),
             record_shapes=True,
             with_stack=True)
         prof.start()
