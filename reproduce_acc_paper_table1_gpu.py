@@ -69,7 +69,7 @@ def evaluate(model, graph, dataloader):
             x = blocks[0].srcdata['feat']
             ys.append(blocks[-1].dstdata['label'])
             y_hats.append(model(blocks, x))
-    return MF.accuracy(torch.cat(y_hats), torch.cat(ys),task='multiclass',num_classes=47)
+    return MF.accuracy(torch.cat(y_hats), torch.cat(ys),task='multiclass',num_classes=out_size)
 
 def layerwise_infer(device, graph, nid, model, batch_size):
     model.eval()
@@ -77,37 +77,37 @@ def layerwise_infer(device, graph, nid, model, batch_size):
         pred = model.inference(graph, device, batch_size) # pred in buffer_device
         pred = pred[nid]
         label = graph.ndata['label'][nid].to(pred.device)
-        return MF.accuracy(pred, label,task='multiclass',num_classes=47)
+        return MF.accuracy(pred, label,task='multiclass',num_classes=out_size)
 
 def train(args, device, g, dataset, model):
     # create sampler & dataloader
     cpu_device=torch.device('cpu')
     # print('dataset device: ', dataset.train_idx.device)
-    train_idx = dataset.train_idx.to(cpu_device)
-    val_idx = dataset.val_idx.to(cpu_device)
-    sampler = NeighborSampler([10, 10, 10],  # fanout for [layer-0, layer-1, layer-2]
+    train_idx = dataset.train_idx.to(device)
+    val_idx = dataset.val_idx.to(device)
+    sampler = NeighborSampler([15, 10, 5],  # fanout for [layer-0, layer-1, layer-2]
                               prefetch_node_feats=['feat'],
                               prefetch_labels=['label'])
     use_uva = (args.mode == 'mixed')
-    train_dataloader = DataLoader(g, train_idx, sampler, device=cpu_device,
+    train_dataloader = DataLoader(g, train_idx, sampler, device=device,
                                   batch_size=1024, shuffle=True,
                                   drop_last=False, num_workers=0,
-                                  )
+                                  use_uva=use_uva)
 
-    val_dataloader = DataLoader(g, val_idx, sampler, device=cpu_device,
+    val_dataloader = DataLoader(g, val_idx, sampler, device=device,
                                 batch_size=1024, shuffle=True,
                                 drop_last=False, num_workers=0,
-                                )
+                                use_uva=use_uva)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
     for epoch in range(1):
         model.train()
         total_loss = 0
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print('it: ', it)
-            if it> 20:
+            if it > 20:
                 break
             ## consider block device
-            blocks = [b.to(device) for b in blocks]
+            # blocks = [b.to(device) for b in blocks]
             # import pdb; pdb.set_trace()
             x = blocks[0].srcdata['feat']
             y = blocks[-1].dstdata['label']
@@ -134,7 +134,7 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset = AsNodePredDataset(DglNodePropPredDataset('ogbn-'))
+    dataset = AsNodePredDataset(DglNodePropPredDataset('ogbn-products'))
     g = dataset[0]
     g = g.to('cuda' if args.mode == 'puregpu' else 'cpu')
     device = torch.device('cpu' if args.mode == 'cpu' else 'cuda')
@@ -161,7 +161,7 @@ if __name__ == '__main__':
             ],
             profile_memory=True,
             schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler('./log2/node_classification_dgl_bs10240_cpu_uvanewnew'),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./reproduce/product_gpu_1024'),
             record_shapes=True,
             with_stack=True)
         prof.start()

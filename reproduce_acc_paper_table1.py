@@ -69,7 +69,7 @@ def evaluate(model, graph, dataloader):
             x = blocks[0].srcdata['feat']
             ys.append(blocks[-1].dstdata['label'])
             y_hats.append(model(blocks, x))
-    return MF.accuracy(torch.cat(y_hats), torch.cat(ys),task='multiclass',num_classes=47)
+    return MF.accuracy(torch.cat(y_hats), torch.cat(ys),task='multiclass',num_classes=out_size)
 
 def layerwise_infer(device, graph, nid, model, batch_size):
     model.eval()
@@ -77,7 +77,7 @@ def layerwise_infer(device, graph, nid, model, batch_size):
         pred = model.inference(graph, device, batch_size) # pred in buffer_device
         pred = pred[nid]
         label = graph.ndata['label'][nid].to(pred.device)
-        return MF.accuracy(pred, label,task='multiclass',num_classes=47)
+        return MF.accuracy(pred, label,task='multiclass',num_classes=out_size)
 
 def train(args, device, g, dataset, model):
     # create sampler & dataloader
@@ -85,7 +85,7 @@ def train(args, device, g, dataset, model):
     # print('dataset device: ', dataset.train_idx.device)
     train_idx = dataset.train_idx.to(cpu_device)
     val_idx = dataset.val_idx.to(cpu_device)
-    sampler = NeighborSampler([10, 10, 10],  # fanout for [layer-0, layer-1, layer-2]
+    sampler = NeighborSampler([15, 10, 5],  # fanout for [layer-0, layer-1, layer-2]
                               prefetch_node_feats=['feat'],
                               prefetch_labels=['label'])
     use_uva = (args.mode == 'mixed')
@@ -104,22 +104,27 @@ def train(args, device, g, dataset, model):
         total_loss = 0
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print('it: ', it)
-            if it> 20:
+            if it> 20 and paper_100m==False:
+                break
+            if it> 3 and paper_100m==True:
                 break
             ## consider block device
             blocks = [b.to(device) for b in blocks]
             # import pdb; pdb.set_trace()
             x = blocks[0].srcdata['feat']
-            y = blocks[-1].dstdata['label']
+            if paper_100m==True:
+                y = blocks[-1].dstdata['label'].to(torch.int64)
+            else:
+                y = blocks[-1].dstdata['label']
             y_hat = model(blocks, x)
             loss = F.cross_entropy(y_hat, y)
             opt.zero_grad()
             loss.backward()
             opt.step()
             total_loss += loss.item()
-        acc = evaluate(model, g, val_dataloader)
-        print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
-              .format(epoch, total_loss / (it+1), acc.item()))
+        # acc = evaluate(model, g, val_dataloader)
+        # print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
+        #       .format(epoch, total_loss / (it+1), acc.item()))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -134,7 +139,7 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset = AsNodePredDataset(DglNodePropPredDataset('ogbn-'))
+    dataset = AsNodePredDataset(DglNodePropPredDataset('ogbn-product'))
     g = dataset[0]
     g = g.to('cuda' if args.mode == 'puregpu' else 'cpu')
     device = torch.device('cpu' if args.mode == 'cpu' else 'cuda')
@@ -145,6 +150,9 @@ if __name__ == '__main__':
     out_size = dataset.num_classes
     print('in_size', in_size)
     print('out_size', out_size)
+    paper_100m=False
+    if out_size==172:
+        paper_100m=True
     model = SAGE(in_size, 256, out_size).to(device)
     print('device: ', device)
     # print('model device: ', model.device)
@@ -161,7 +169,7 @@ if __name__ == '__main__':
             ],
             profile_memory=True,
             schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler('./log2/node_classification_dgl_bs10240_cpu_uvanewnew'),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./reproduce/arxiv_1024_cpu_to_gpu_4'),
             record_shapes=True,
             with_stack=True)
         prof.start()
