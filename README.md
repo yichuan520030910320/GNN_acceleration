@@ -1,4 +1,4 @@
-(GraphSAGE)
+GraphSAGE
 ============
 
 
@@ -10,6 +10,69 @@ pip install requests torchmetrics
 ```
 
 
+## baseline result
+
+### configuration 
+batch size:1024,
+neighbor size:[15, 10, 5],  # fanout for [layer-0, layer-1, layer-2],
+number of layers:3 
+
+#### sampled subgraph size compared to the whole graph：
+
+arxiv: 0.2821829537832221
+
+> len(dataset.train_idx)=90941
+0:Block(num_src_nodes=25662, num_dst_nodes=10752, num_edges=36362)
+1:
+Block(num_src_nodes=10752, num_dst_nodes=3611, num_edges=11181)
+2:
+Block(num_src_nodes=3611, num_dst_nodes=1024, num_edges=2641)
+
+products : 2.340645423797777
+
+> len(dataset.train_idx)=196615
+0:Block(num_src_nodes=460206, num_dst_nodes=57939, num_edges=850617)
+1:
+Block(num_src_nodes=57939, num_dst_nodes=6073, num_edges=60159)
+2:
+Block(num_src_nodes=6073, num_dst_nodes=1024, num_edges=5114)
+
+
+
+core code
+```
+train_dataloader = DataLoader(g, train_idx, sampler, device=cpu_device,
+                                  batch_size=1024, shuffle=True,
+                                  drop_last=False, num_workers=0,
+                                  )
+
+val_dataloader = DataLoader(g, val_idx, sampler, device=cpu_device,
+                           batch_size=1024, shuffle=True,
+                           drop_last=False, num_workers=0,
+                           )
+opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
+for epoch in range(1):
+   model.train()
+   total_loss = 0
+   for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
+      if it> 20 and paper_100m==False:
+            break
+      if it> 3 and paper_100m==True:
+            break
+      blocks = [b.to(device) for b in blocks]
+      # import pdb; pdb.set_trace()
+      x = blocks[0].srcdata['feat']
+      if paper_100m==True:
+            y = blocks[-1].dstdata['label'].to(torch.int64)
+      else:
+            y = blocks[-1].dstdata['label']
+      y_hat = model(blocks, x)
+      loss = F.cross_entropy(y_hat, y)
+      opt.zero_grad()
+      loss.backward()
+      opt.step()
+      total_loss += loss.item()
+```
 
 
 ### Minibatch training for node classification

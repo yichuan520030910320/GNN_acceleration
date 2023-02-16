@@ -9,6 +9,7 @@ from dgl.dataloading import DataLoader, NeighborSampler, MultiLayerFullNeighborS
 from ogb.nodeproppred import DglNodePropPredDataset
 import tqdm
 import argparse
+from numpy import *
 
 class SAGE(nn.Module):
     def __init__(self, in_size, hid_size, out_size):
@@ -69,7 +70,7 @@ def evaluate(model, graph, dataloader):
             x = blocks[0].srcdata['feat']
             ys.append(blocks[-1].dstdata['label'])
             y_hats.append(model(blocks, x))
-    return MF.accuracy(torch.cat(y_hats), torch.cat(ys),task='multiclass',num_classes=47)
+    return MF.accuracy(torch.cat(y_hats), torch.cat(ys),task='multiclass',num_classes=out_size)
 
 def layerwise_infer(device, graph, nid, model, batch_size):
     model.eval()
@@ -77,47 +78,122 @@ def layerwise_infer(device, graph, nid, model, batch_size):
         pred = model.inference(graph, device, batch_size) # pred in buffer_device
         pred = pred[nid]
         label = graph.ndata['label'][nid].to(pred.device)
-        return MF.accuracy(pred, label,task='multiclass',num_classes=47)
+        return MF.accuracy(pred, label,task='multiclass',num_classes=out_size)
 
 def train(args, device, g, dataset, model):
     # create sampler & dataloader
     cpu_device=torch.device('cpu')
     # print('dataset device: ', dataset.train_idx.device)
-    train_idx = dataset.train_idx.to(cpu_device)
-    val_idx = dataset.val_idx.to(cpu_device)
-    sampler = NeighborSampler([10, 10, 10],  # fanout for [layer-0, layer-1, layer-2]
+    if uva_or_not==True :
+        train_idx = dataset.train_idx.to(device)
+        val_idx = dataset.val_idx.to(device)
+    else:
+        train_idx = dataset.train_idx.to(cpu_device)
+        val_idx = dataset.val_idx.to(cpu_device)
+    sampler = NeighborSampler([15, 10, 5],  # fanout for [layer-0, layer-1, layer-2]
                               prefetch_node_feats=['feat'],
                               prefetch_labels=['label'])
     use_uva = (args.mode == 'mixed')
-    train_dataloader = DataLoader(g, train_idx, sampler, device=cpu_device,
+    if uva_or_not==False:
+        use_uva = False
+    train_dataloader = DataLoader(g, train_idx, sampler, device=device,
                                   batch_size=1024, shuffle=True,
                                   drop_last=False, num_workers=0,
+                                  use_uva=use_uva
                                   )
 
-    val_dataloader = DataLoader(g, val_idx, sampler, device=cpu_device,
+    val_dataloader = DataLoader(g, val_idx, sampler, device=device,
                                 batch_size=1024, shuffle=True,
                                 drop_last=False, num_workers=0,
+                                use_uva=use_uva
                                 )
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
     for epoch in range(1):
         model.train()
         total_loss = 0
         
+        start_event = torch.cuda.Event(enable_timing=True)
+        end_event = torch.cuda.Event(enable_timing=True)
+        start_event.synchronize()
+        start_event.record(torch.cuda.current_stream())
+        
+        batch_prepare_time =[]
+        data_tansfer_time = []
+        train_time = []
+        slice_time = []
+        
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print('it: ', it)
+            
+            end_event.record(torch.cuda.current_stream())
+            end_event.synchronize()
+            step_elapsed = start_event.elapsed_time(end_event) 
+            batch_prepare_time.append(step_elapsed)
             if it> 20:
                 break
             ## consider block device
-            blocks = [b.to(device) for b in blocks]
+            print('block 0 device', blocks[0].device)
+            
+            # start_event.synchronize()
+            # start_event.record(torch.cuda.current_stream())
+            # # blocks = [b.to(device) for b in blocks]
+            # end_event.record(torch.cuda.current_stream())
+            # end_event.synchronize()
+            # step_elapsed = start_event.elapsed_time(end_event) 
+            # data_tansfer_time.append(step_elapsed)
+            
+            start_event.synchronize()
+            start_event.record(torch.cuda.current_stream())
+            
             # import pdb; pdb.set_trace()
             x = blocks[0].srcdata['feat']
-            y = blocks[-1].dstdata['label']
+            if paper_100m==True:
+                y = blocks[-1].dstdata['label'].to(torch.int64)
+            else:
+                y = blocks[-1].dstdata['label']
+            
+            
+            end_event.record(torch.cuda.current_stream())
+            end_event.synchronize()
+            step_elapsed = start_event.elapsed_time(end_event) 
+            slice_time.append(step_elapsed)
+            
+            
+            start_event.synchronize()
+            start_event.record(torch.cuda.current_stream())
             y_hat = model(blocks, x)
             loss = F.cross_entropy(y_hat, y)
             opt.zero_grad()
             loss.backward()
             opt.step()
             total_loss += loss.item()
+            
+            
+            end_event.record(torch.cuda.current_stream())
+            end_event.synchronize()
+            step_elapsed = start_event.elapsed_time(end_event) 
+            train_time.append(step_elapsed)
+            
+            start_event.synchronize()
+            start_event.record(torch.cuda.current_stream())
+        ## calculate the avg time of a list
+        batch_prepare_time_avg = mean(batch_prepare_time[-11:-1])
+        # data_tansfer_time_avg = mean(data_tansfer_time[-11:-1])
+        train_time_avg = mean(train_time[-11:-1])
+        slice_time_avg = mean(slice_time[-11:-1])
+        all_avg = batch_prepare_time_avg +  train_time_avg+slice_time_avg
+        
+        print('batch_prepare_time: ', batch_prepare_time)
+        print('slice_time: ', slice_time)
+        # print('data_tansfer_time: ', data_tansfer_time)
+        print('train_time: ', train_time)
+        
+        print('batch_prepare_time_avg: ', batch_prepare_time_avg)
+        print('slice_time_avg: ', slice_time_avg)
+        # print('data_tansfer_time_avg: ', data_tansfer_time_avg)
+        print('train_time_avg: ', train_time_avg)
+        print('all_avg: ', all_avg)        
+        
         acc = evaluate(model, g, val_dataloader)
         print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
               .format(epoch, total_loss / (it+1), acc.item()))
@@ -135,7 +211,11 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset = AsNodePredDataset(DglNodePropPredDataset('ogbn-'))
+    dataset_name='ogbn-products'
+    uva_or_not=False
+    print('uva_or_not: ', uva_or_not)
+    dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
+    print('dataset: ', dataset_name)
     g = dataset[0]
     g = g.to('cuda' if args.mode == 'puregpu' else 'cpu')
     device = torch.device('cpu' if args.mode == 'cpu' else 'cuda')
@@ -146,6 +226,9 @@ if __name__ == '__main__':
     out_size = dataset.num_classes
     print('in_size', in_size)
     print('out_size', out_size)
+    paper_100m=False
+    if out_size==172:
+        paper_100m=True
     model = SAGE(in_size, 256, out_size).to(device)
     print('device: ', device)
     # print('model device: ', model.device)
@@ -154,27 +237,27 @@ if __name__ == '__main__':
     print('Training...')
     
     proflie=True
-    if proflie==True:
-        prof = torch.profiler.profile(
-            activities=[
-                torch.profiler.ProfilerActivity.CPU,
-                torch.profiler.ProfilerActivity.CUDA,
-            ],
-            profile_memory=True,
-            schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler('./log2/node_classification_dgl_bs10240_cpu_uvanewnew'),
-            record_shapes=True,
-            with_stack=True)
-        prof.start()
-        # for step, batch_data in enumerate(train_loader):
-        #     if step >= (1 + 1 + 3) * 2:
-        #         break
-        #     train(batch_data)
-        #     prof.step()
-        train(args, device, g, dataset, model)
-        prof.stop()
-    else:
-        train(args, device, g, dataset, model)
+    # if proflie==True:
+    #     prof = torch.profiler.profile(
+    #         activities=[
+    #             torch.profiler.ProfilerActivity.CPU,
+    #             torch.profiler.ProfilerActivity.CUDA,
+    #         ],
+    #         profile_memory=True,
+    #         schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
+    #         on_trace_ready=torch.profiler.tensorboard_trace_handler('./reproduce/paper_1024_cpu_to_gpu'),
+    #         record_shapes=True,
+    #         with_stack=True)
+    #     prof.start()
+    #     # for step, batch_data in enumerate(train_loader):
+    #     #     if step >= (1 + 1 + 3) * 2:
+    #     #         break
+    #     #     train(batch_data)
+    #     #     prof.step()
+    #     train(args, device, g, dataset, model)
+    #     prof.stop()
+    # else:
+    train(args, device, g, dataset, model)
     
 
     # test the model

@@ -112,6 +112,7 @@ def train(args, device, g, dataset, model):
         batch_prepare_time =[]
         data_tansfer_time = []
         train_time = []
+        slice_time = []
         
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print('it: ', it)
@@ -141,6 +142,15 @@ def train(args, device, g, dataset, model):
             else:
                 y = blocks[-1].dstdata['label']
             
+            
+            end_event.record(torch.cuda.current_stream())
+            end_event.synchronize()
+            step_elapsed = start_event.elapsed_time(end_event) 
+            slice_time.append(step_elapsed)
+            
+            
+            start_event.synchronize()
+            start_event.record(torch.cuda.current_stream())
             y_hat = model(blocks, x)
             loss = F.cross_entropy(y_hat, y)
             opt.zero_grad()
@@ -154,19 +164,22 @@ def train(args, device, g, dataset, model):
             step_elapsed = start_event.elapsed_time(end_event) 
             train_time.append(step_elapsed)
             
-            torch.cuda.synchronize()
+            start_event.synchronize()
             start_event.record(torch.cuda.current_stream())
         ## calculate the avg time of a list
         batch_prepare_time_avg = mean(batch_prepare_time[-11:-1])
         data_tansfer_time_avg = mean(data_tansfer_time[-11:-1])
         train_time_avg = mean(train_time[-11:-1])
-        all_avg = batch_prepare_time_avg + data_tansfer_time_avg + train_time_avg
+        slice_time_avg = mean(slice_time[-11:-1])
+        all_avg = batch_prepare_time_avg + data_tansfer_time_avg + train_time_avg+slice_time_avg
         
         print('batch_prepare_time: ', batch_prepare_time)
+        print('slice_time: ', slice_time)
         print('data_tansfer_time: ', data_tansfer_time)
         print('train_time: ', train_time)
         
         print('batch_prepare_time_avg: ', batch_prepare_time_avg)
+        print('slice_time_avg: ', slice_time_avg)
         print('data_tansfer_time_avg: ', data_tansfer_time_avg)
         print('train_time_avg: ', train_time_avg)
         print('all_avg: ', all_avg)        
