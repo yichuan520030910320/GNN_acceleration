@@ -12,6 +12,19 @@ pip install requests torchmetrics
 
 ## baseline result
 
+<!-- ![alt 属性文本]( https://files.slack.com/files-pri/TR41NUQES-F04PV6FCFSR/image.png)
+
+
+<img src="https://files.slack.com/files-pri/TR41NUQES-F04PV6FCFSR/image.png" alt="图片alt" title="图片title">
+
+
+
+![CSDN图标](https://csdnimg.cn/cdn/content-toolbar/csdn-logo_.png?v=20190924.1 "CSDN图标") -->
+
+![image.png](https://s2.loli.net/2023/02/16/QaxvnSr31jgzuDB.png)
+
+
+
 ### configuration 
 batch size:1024,
 neighbor size:[15, 10, 5],  # fanout for [layer-0, layer-1, layer-2],
