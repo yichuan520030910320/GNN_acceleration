@@ -85,9 +85,7 @@ def train(args, device, g, dataset, model):
     # print('dataset device: ', dataset.train_idx.device)
     train_idx = dataset.train_idx.to(cpu_device)
     val_idx = dataset.val_idx.to(cpu_device)
-    sampler = NeighborSampler([15, 10, 5],  # fanout for [layer-0, layer-1, layer-2]
-                              prefetch_node_feats=['feat'],
-                              prefetch_labels=['label'])
+    sampler = NeighborSampler([15, 10, 5])
     use_uva = (args.mode == 'mixed')
     train_dataloader = DataLoader(g, train_idx, sampler, device=cpu_device,
                                   batch_size=1024, shuffle=True,
@@ -139,7 +137,7 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset = AsNodePredDataset(DglNodePropPredDataset('ogbn-product'))
+    dataset = AsNodePredDataset(DglNodePropPredDataset('ogbn-arxiv'))
     g = dataset[0]
     g = g.to('cuda' if args.mode == 'puregpu' else 'cpu')
     device = torch.device('cpu' if args.mode == 'cpu' else 'cuda')
@@ -169,7 +167,7 @@ if __name__ == '__main__':
             ],
             profile_memory=True,
             schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler('./reproduce/arxiv_1024_cpu_to_gpu_4'),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./reproduce/arxiv_1024_cpu_to_gpu_wo_prefetch'),
             record_shapes=True,
             with_stack=True)
         prof.start()
