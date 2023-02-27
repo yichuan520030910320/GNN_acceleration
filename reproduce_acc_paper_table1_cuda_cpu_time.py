@@ -14,12 +14,12 @@ import time
 
 
 
-sample_and_datatrans
-data_tansfer_time
-train_time
-slice_time
-start_time
-end_time
+sample_and_datatrans=[]
+data_tansfer_time=[]
+train_time=[]
+slice_time=[]
+start_time=0
+end_time=0
 def add_sample_datatransfer_time(end_time):
     sample_and_datatrans.append((end_time-start_time)*1000)
 
@@ -124,59 +124,54 @@ def train(args, device, g, dataset, model):
         model.train()
         total_loss = 0
         
-        # start_event = torch.cuda.Event(enable_timing=True)
-        # end_event = torch.cuda.Event(enable_timing=True)
-        # start_event.synchronize()
-        # start_event.record(torch.cuda.current_stream())
-        
-        
-        
 
-        global sample_and_datatrans
-        global data_tansfer_time
-        global train_time
-        global slice_time
-        global start_time
-        global end_time
+        
+        train_dataloader.sample_and_datatrans_time = []
+        train_dataloader.slice_time = []
+        train_dataloader.train_time = []
+        train_dataloader.start_record_time =0
+        train_dataloader.end_record_time =0
+        train_dataloader.whether_time_time_cudaevent=whether_time_time_or_cudaevent
   
         torch.cuda.synchronize()
-        start_time = time.time()
         
-        # sample_and_datatrans =[]
-        # data_tansfer_time = []
-        # train_time = []
-        # slice_time = []
+        if whether_time_time_or_cudaevent==0:
+            torch.cuda.synchronize() 
+            train_dataloader.start_record_time = time.time()
+        else:
+            train_dataloader.start_record_time = torch.cuda.Event(enable_timing=True)
+            train_dataloader.end_record_time = torch.cuda.Event(enable_timing=True)
+            train_dataloader.start_record_time.synchronize()
+            train_dataloader.start_record_time.record(torch.cuda.current_stream())
         
-        
+
         
         
         
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print('it: ', it)
             
-            
-            
-            # end_event.record(torch.cuda.current_stream())
-            # end_event.synchronize()
-            # step_elapsed = start_event.elapsed_time(end_event) 
-            # sample_and_datatrans.append(step_elapsed)
+
             if it> 20:
                 break
             ## consider block device
+
             
-            # start_event.synchronize()
-            # start_event.record(torch.cuda.current_stream())
-            # # blocks = [b.to(device) for b in blocks]
-            # end_event.record(torch.cuda.current_stream())
-            # end_event.synchronize()
-            # step_elapsed = start_event.elapsed_time(end_event) 
-            # data_tansfer_time.append(step_elapsed)
             
-            # start_event.synchronize()
-            # start_event.record(torch.cuda.current_stream())
+            if train_dataloader.whether_time_time_cudaevent == 0:
+                torch.cuda.synchronize()
+                train_dataloader.end_record_time = time.time()
+                train_dataloader.slice_time.append((train_dataloader.end_record_time - train_dataloader.start_record_time)*1000)
+                torch.cuda.synchronize()
+                train_dataloader.start_record_time = time.time()
             
-            torch.cuda.synchronize()
-            start_time = time.time()
+            else:
+                train_dataloader.end_record_time.record(torch.cuda.current_stream())
+                train_dataloader.end_record_time.synchronize()
+                train_dataloader.slice_time.append(train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time))
+        
+        
+            
             
             # import pdb; pdb.set_trace()
             x = blocks[0].srcdata['feat']
@@ -185,54 +180,50 @@ def train(args, device, g, dataset, model):
             else:
                 y = blocks[-1].dstdata['label']
             
+            if train_dataloader.whether_time_time_cudaevent == 0:
+                torch.cuda.synchronize()
+                train_dataloader.end_record_time  = time.time()
+                train_dataloader.slice_time[-1]=train_dataloader.slice_time[-1]+(train_dataloader.end_record_time -  train_dataloader.start_record_time)*1000
+                torch.cuda.synchronize()
+                start_record_time = time.time()
+            else:
+                train_dataloader.end_record_time.record(torch.cuda.current_stream())
+                train_dataloader.end_record_time.synchronize()
+                train_dataloader.slice_time[-1]=train_dataloader.slice_time[-1]+train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time)
+                torch.cuda.synchronize()
+                train_dataloader.start_record_time.record(torch.cuda.current_stream())
             
-            torch.cuda.synchronize()
-            end_time = time.time()
-            slice_time[-1]=slice_time[-1]+(end_time - start_time)*1000
-            
-            # end_event.record(torch.cuda.current_stream())
-            # end_event.synchronize()
-            # step_elapsed = start_event.elapsed_time(end_event) 
-            # slice_time.append(step_elapsed)
-            
-            torch.cuda.synchronize()
-            start_time = time.time()
-            
-            # start_event.synchronize()
-            # start_event.record(torch.cuda.current_stream())
             y_hat = model(blocks, x)
             loss = F.cross_entropy(y_hat, y)
             opt.zero_grad()
             loss.backward()
             opt.step()
             total_loss += loss.item()
+            if train_dataloader.whether_time_time_cudaevent == 0:
+                torch.cuda.synchronize()
+                end_record_time=time.time()
+                train_dataloader.train_time.append((end_record_time -  start_record_time)*1000)
+                torch.cuda.synchronize()
+                train_dataloader.start_record_time= time.time()
+            else:
+                train_dataloader.end_record_time.record(torch.cuda.current_stream())
+                train_dataloader.end_record_time.synchronize()
+                train_dataloader.train_time.append(train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time))
+                torch.cuda.synchronize()
+                train_dataloader.start_record_time.record(torch.cuda.current_stream())
             
-            torch.cuda.synchronize()
-            end_time=time.time()
-            train_time.append((end_time - start_time)*1000)
-            
-            torch.cuda.synchronize()
-            start_time = time.time()
-            
-            
-            # end_event.record(torch.cuda.current_stream())
-            # end_event.synchronize()
-            # step_elapsed = start_event.elapsed_time(end_event) 
-            # train_time.append(step_elapsed)
-            
-            # start_event.synchronize()
-            # start_event.record(torch.cuda.current_stream())
+        
         ## calculate the avg time of a list
-        sample_and_datatrans_avg = mean(sample_and_datatrans[-11:-1])
+        sample_and_datatrans_avg = mean(train_dataloader.sample_and_datatrans_time[-11:-1])
         # data_tansfer_time_avg = mean(data_tansfer_time[-11:-1])
-        train_time_avg = mean(train_time[-11:-1])
-        slice_time_avg = mean(slice_time[-11:-1])
+        train_time_avg = mean(train_dataloader.train_time[-11:-1])
+        slice_time_avg = mean(train_dataloader.slice_time[-11:-1])
         all_avg = sample_and_datatrans_avg +  train_time_avg+slice_time_avg
         
-        print('sample_and_datatrans: ', sample_and_datatrans)
-        print('slice_time: ', slice_time)
+        print('sample_and_datatrans: ',train_dataloader.sample_and_datatrans_time)
+        print('slice_time: ', train_dataloader.slice_time)
         # print('data_tansfer_time: ', data_tansfer_time)
-        print('train_time: ', train_time)
+        print('train_time: ', train_dataloader.train_time)
         
         print('sample_and_datatrans_avg: ', sample_and_datatrans_avg)
         print('slice_time_avg: ', slice_time_avg)
@@ -240,7 +231,7 @@ def train(args, device, g, dataset, model):
         print('train_time_avg: ', train_time_avg)
         print('all_avg: ', all_avg)        
         
-        acc = evaluate(model, g, val_dataloader)
+        # acc = evaluate(model, g, val_dataloader)
         print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
               .format(epoch, total_loss / (it+1), acc.item()))
 
@@ -260,8 +251,11 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset_name='ogbn-arxiv'
+    dataset_name='ogbn-products'
+    
+    whether_time_time_or_cudaevent=0
     uva_or_not=True
+    print('whether_time_time_or_cudaevent: ', whether_time_time_or_cudaevent)
     print('uva_or_not: ', uva_or_not)
     print('dataset_name: ', dataset_name)
     dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))

@@ -94,12 +94,15 @@ def train(args, device, g, dataset, model):
                                   drop_last=False, num_workers=0,
                                   use_uva=use_uva
                                   )
-
+    ## while train_dataloader.whether_time_time_cudaevent > 1 means we do not need to break down in the dgl
+    train_dataloader.whether_time_time_cudaevent =5
     val_dataloader = DataLoader(g, val_idx, sampler, device=device,
                                 batch_size=1024, shuffle=True,
                                 drop_last=False, num_workers=0,
                                 use_uva=use_uva
                                 )
+    
+    val_dataloader.whether_time_time_cudaevent =5
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
     for epoch in range(1):
         model.train()
@@ -136,7 +139,7 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset = AsNodePredDataset(DglNodePropPredDataset('ogbn-arxiv'))
+    dataset = AsNodePredDataset(DglNodePropPredDataset('ogbn-products'))
     g = dataset[0]
     g = g.to('cuda' if args.mode == 'puregpu' else 'cpu')
     device = torch.device('cpu' if args.mode == 'cpu' else 'cuda')
@@ -163,7 +166,7 @@ if __name__ == '__main__':
             ],
             profile_memory=True,
             schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler('./reproduce_gpu/arxiv_1024'),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./reproduce_gpu/product_1'),
             record_shapes=True,
             with_stack=True)
         prof.start()
