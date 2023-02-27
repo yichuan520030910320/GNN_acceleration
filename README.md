@@ -34,7 +34,7 @@ number of layers:3
 
 arxiv: 0.15153859326928187
 
-> len(dataset.train_idx)=169343
+> Graph=169343
 0:Block(num_src_nodes=25662, num_dst_nodes=10752, num_edges=36362)
 1:
 Block(num_src_nodes=10752, num_dst_nodes=3611, num_edges=11181)
@@ -50,6 +50,15 @@ Block(num_src_nodes=57939, num_dst_nodes=6073, num_edges=60159)
 2:
 Block(num_src_nodes=6073, num_dst_nodes=1024, num_edges=5114)
 
+papers100M:0.18653801159561606
+
+> graph:Graph(num_nodes=2449029, num_edges=123718280
+0:
+Block(num_src_nodes=456837, num_dst_nodes=57824, num_edges=849863)
+1:
+Block(num_src_nodes=57824, num_dst_nodes=6077, num_edges=60214)
+2:
+Block(num_src_nodes=6077, num_dst_nodes=1024, num_edges=5106)
 
 
 core code
