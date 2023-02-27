@@ -113,7 +113,6 @@ def train(args, device, g, dataset, model):
                                   drop_last=False, num_workers=0,
                                   use_uva=use_uva
                                   )
-
     val_dataloader = DataLoader(g, val_idx, sampler, device=device,
                                 batch_size=1024, shuffle=True,
                                 drop_last=False, num_workers=0,
@@ -123,18 +122,13 @@ def train(args, device, g, dataset, model):
     for epoch in range(1):
         model.train()
         total_loss = 0
-        
-
-        
         train_dataloader.sample_and_datatrans_time = []
         train_dataloader.slice_time = []
         train_dataloader.train_time = []
         train_dataloader.start_record_time =0
         train_dataloader.end_record_time =0
         train_dataloader.whether_time_time_cudaevent=whether_time_time_or_cudaevent
-  
         torch.cuda.synchronize()
-        
         if whether_time_time_or_cudaevent==0:
             torch.cuda.synchronize() 
             train_dataloader.start_record_time = time.time()
@@ -143,43 +137,27 @@ def train(args, device, g, dataset, model):
             train_dataloader.end_record_time = torch.cuda.Event(enable_timing=True)
             train_dataloader.start_record_time.synchronize()
             train_dataloader.start_record_time.record(torch.cuda.current_stream())
-        
-
-        
-        
-        
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print('it: ', it)
-            
-
             if it> 20:
                 break
             ## consider block device
-
-            
-            
             if train_dataloader.whether_time_time_cudaevent == 0:
                 torch.cuda.synchronize()
                 train_dataloader.end_record_time = time.time()
                 train_dataloader.slice_time.append((train_dataloader.end_record_time - train_dataloader.start_record_time)*1000)
                 torch.cuda.synchronize()
                 train_dataloader.start_record_time = time.time()
-            
             else:
                 train_dataloader.end_record_time.record(torch.cuda.current_stream())
                 train_dataloader.end_record_time.synchronize()
                 train_dataloader.slice_time.append(train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time))
-        
-        
-            
-            
             # import pdb; pdb.set_trace()
             x = blocks[0].srcdata['feat']
             if paper_100m==True:
                 y = blocks[-1].dstdata['label'].to(torch.int64)
             else:
                 y = blocks[-1].dstdata['label']
-            
             if train_dataloader.whether_time_time_cudaevent == 0:
                 torch.cuda.synchronize()
                 train_dataloader.end_record_time  = time.time()
@@ -192,7 +170,6 @@ def train(args, device, g, dataset, model):
                 train_dataloader.slice_time[-1]=train_dataloader.slice_time[-1]+train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time)
                 torch.cuda.synchronize()
                 train_dataloader.start_record_time.record(torch.cuda.current_stream())
-            
             y_hat = model(blocks, x)
             loss = F.cross_entropy(y_hat, y)
             opt.zero_grad()
@@ -251,7 +228,7 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset_name='ogbn-products'
+    dataset_name='ogbn-papers100M'
     
     whether_time_time_or_cudaevent=0
     uva_or_not=True

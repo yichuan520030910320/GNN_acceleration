@@ -32,18 +32,18 @@ number of layers:3
 
 #### sampled subgraph size compared to the whole graph：
 
-arxiv: 0.2821829537832221
+arxiv: 0.15153859326928187
 
-> len(dataset.train_idx)=90941
+> len(dataset.train_idx)=169343
 0:Block(num_src_nodes=25662, num_dst_nodes=10752, num_edges=36362)
 1:
 Block(num_src_nodes=10752, num_dst_nodes=3611, num_edges=11181)
 2:
 Block(num_src_nodes=3611, num_dst_nodes=1024, num_edges=2641)
 
-products : 2.340645423797777
+products : 0.18791365884193287
 
-> len(dataset.train_idx)=196615
+> all_node=2449029
 0:Block(num_src_nodes=460206, num_dst_nodes=57939, num_edges=850617)
 1:
 Block(num_src_nodes=57939, num_dst_nodes=6073, num_edges=60159)
