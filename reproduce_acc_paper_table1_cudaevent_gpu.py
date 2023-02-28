@@ -107,6 +107,10 @@ def train(args, device, g, dataset, model):
                                 drop_last=False, num_workers=0,
                                 use_uva=use_uva
                                 )
+    
+    train_dataloader.whether_time_time_cudaevent =whether_time_time_cudaevent
+    val_dataloader.whether_time_time_cudaevent =whether_time_time_cudaevent
+
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
     for epoch in range(1):
         model.train()
@@ -132,7 +136,6 @@ def train(args, device, g, dataset, model):
             if it> 20:
                 break
             ## consider block device
-            print('block 0 device', blocks[0].device)
             
             # start_event.synchronize()
             # start_event.record(torch.cuda.current_stream())
@@ -211,15 +214,17 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset_name='ogbn-products'
-    uva_or_not=False
+    dataset_name='ogbn-arxiv'
+    uva_or_not=True
     print('uva_or_not: ', uva_or_not)
     dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
     print('dataset: ', dataset_name)
     g = dataset[0]
     g = g.to('cuda' if args.mode == 'puregpu' else 'cpu')
     device = torch.device('cpu' if args.mode == 'cpu' else 'cuda')
-
+    ## 2 stand for using cuda event 3 stand for using time.time do not need to break down
+    whether_time_time_cudaevent =3
+    print('whether_time_time_cudaevent: ', whether_time_time_cudaevent)
     # create GraphSAGE model
     # import pdb; pdb.set_trace()
     in_size = g.ndata['feat'].shape[1]
@@ -237,26 +242,7 @@ if __name__ == '__main__':
     print('Training...')
     
     proflie=True
-    # if proflie==True:
-    #     prof = torch.profiler.profile(
-    #         activities=[
-    #             torch.profiler.ProfilerActivity.CPU,
-    #             torch.profiler.ProfilerActivity.CUDA,
-    #         ],
-    #         profile_memory=True,
-    #         schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
-    #         on_trace_ready=torch.profiler.tensorboard_trace_handler('./reproduce/paper_1024_cpu_to_gpu'),
-    #         record_shapes=True,
-    #         with_stack=True)
-    #     prof.start()
-    #     # for step, batch_data in enumerate(train_loader):
-    #     #     if step >= (1 + 1 + 3) * 2:
-    #     #         break
-    #     #     train(batch_data)
-    #     #     prof.step()
-    #     train(args, device, g, dataset, model)
-    #     prof.stop()
-    # else:
+    
     train(args, device, g, dataset, model)
     
 

@@ -10,6 +10,18 @@ from ogb.nodeproppred import DglNodePropPredDataset
 import tqdm
 import argparse
 from numpy import *
+import time
+
+
+
+sample_and_datatrans=[]
+data_tansfer_time=[]
+train_time=[]
+slice_time=[]
+start_time=0
+end_time=0
+def add_sample_datatransfer_time(end_time):
+    sample_and_datatrans.append((end_time-start_time)*1000)
 
 class SAGE(nn.Module):
     def __init__(self, in_size, hid_size, out_size):
@@ -84,143 +96,119 @@ def train(args, device, g, dataset, model):
     # create sampler & dataloader
     cpu_device=torch.device('cpu')
     # print('dataset device: ', dataset.train_idx.device)
-    train_idx = dataset.train_idx.to(cpu_device)
-    val_idx = dataset.val_idx.to(cpu_device)
-    sampler = NeighborSampler([15, 10, 5])
+    if uva_or_not==True :
+        train_idx = dataset.train_idx.to(device)
+        val_idx = dataset.val_idx.to(device)
+    else:
+        train_idx = dataset.train_idx.to(cpu_device)
+        val_idx = dataset.val_idx.to(cpu_device)
+    sampler = NeighborSampler([15, 10, 5],  # fanout for [layer-0, layer-1, layer-2]
+                              prefetch_node_feats=['feat'],
+                              prefetch_labels=['label'])
     use_uva = (args.mode == 'mixed')
-    train_dataloader = DataLoader(g, train_idx, sampler, device=cpu_device,
+    if uva_or_not==False:
+        use_uva = False
+    train_dataloader = DataLoader(g, train_idx, sampler, device=device,
                                   batch_size=1024, shuffle=True,
                                   drop_last=False, num_workers=0,
+                                  use_uva=use_uva
                                   )
-    ## 2 stand for using cuda event 3 stand for using time.time
-    train_dataloader.whether_time_time_cudaevent =whether_time_time_cudaevent
-
-    val_dataloader = DataLoader(g, val_idx, sampler, device=cpu_device,
+    val_dataloader = DataLoader(g, val_idx, sampler, device=device,
                                 batch_size=1024, shuffle=True,
                                 drop_last=False, num_workers=0,
+                                use_uva=use_uva
                                 )
-    
-    val_dataloader.whether_time_time_cudaevent =whether_time_time_cudaevent
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
     for epoch in range(1):
         model.train()
         total_loss = 0
-        import time
-        
-        if train_dataloader.whether_time_time_cudaevent == 3:
-            torch.cuda.synchronize()
-            start_time = time.time()
-        elif train_dataloader.whether_time_time_cudaevent == 2:
-            start_event = torch.cuda.Event(enable_timing=True)
-            end_event = torch.cuda.Event(enable_timing=True)
-            torch.cuda.synchronize()
-            start_event.record(torch.cuda.current_stream())
-            
-        batch_prepare_time =[]
-        data_tansfer_time = []
-        train_time = []
-        slice_time = []
-        
+        train_dataloader.sample_and_datatrans_time = []
+        train_dataloader.slice_time = []
+        train_dataloader.train_time = []
+        train_dataloader.start_record_time =0
+        train_dataloader.end_record_time =0
+        train_dataloader.whether_time_time_cudaevent=whether_time_time_or_cudaevent
+        torch.cuda.synchronize()
+        if whether_time_time_or_cudaevent==0:
+            torch.cuda.synchronize() 
+            train_dataloader.start_record_time = time.time()
+        else:
+            train_dataloader.start_record_time = torch.cuda.Event(enable_timing=True)
+            train_dataloader.end_record_time = torch.cuda.Event(enable_timing=True)
+            train_dataloader.start_record_time.synchronize()
+            train_dataloader.start_record_time.record(torch.cuda.current_stream())
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print('it: ', it)
-            
             if it> 20:
                 break
-            
-            if train_dataloader.whether_time_time_cudaevent == 3:
+            ## consider block device
+            if train_dataloader.whether_time_time_cudaevent == 0:
                 torch.cuda.synchronize()
-                end_time = time.time()
-                batch_prepare_time.append((end_time-start_time)*1000)
+                train_dataloader.end_record_time = time.time()
+                train_dataloader.slice_time.append((train_dataloader.end_record_time - train_dataloader.start_record_time)*1000)
                 torch.cuda.synchronize()
-                start_time = time.time()
-            elif train_dataloader.whether_time_time_cudaevent == 2:
-                end_event.record(torch.cuda.current_stream())
-                end_event.synchronize()
-                step_elapsed = start_event.elapsed_time(end_event) 
-                batch_prepare_time.append(step_elapsed)
-                torch.cuda.synchronize()
-                start_event.record(torch.cuda.current_stream())
-            
-            blocks = [b.to(device) for b in blocks]
-            if train_dataloader.whether_time_time_cudaevent == 3:
-                torch.cuda.synchronize()
-                end_time = time.time()
-                data_tansfer_time.append((end_time-start_time)*1000)
-                torch.cuda.synchronize()
-                start_time = time.time()
-            elif train_dataloader.whether_time_time_cudaevent == 2: 
-                end_event.record(torch.cuda.current_stream())
-                end_event.synchronize()
-                step_elapsed = start_event.elapsed_time(end_event) 
-                data_tansfer_time.append(step_elapsed)
-                
-                torch.cuda.synchronize()
-                start_event.record(torch.cuda.current_stream())
-            
+                train_dataloader.start_record_time = time.time()
+            else:
+                train_dataloader.end_record_time.record(torch.cuda.current_stream())
+                train_dataloader.end_record_time.synchronize()
+                train_dataloader.slice_time.append(train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time))
+            # import pdb; pdb.set_trace()
             x = blocks[0].srcdata['feat']
             if paper_100m==True:
                 y = blocks[-1].dstdata['label'].to(torch.int64)
             else:
                 y = blocks[-1].dstdata['label']
-            
-            
-            
-            if train_dataloader.whether_time_time_cudaevent == 3:
+            if train_dataloader.whether_time_time_cudaevent == 0:
                 torch.cuda.synchronize()
-                end_time = time.time()
-                slice_time.append((end_time-start_time)*1000)
+                train_dataloader.end_record_time  = time.time()
+                train_dataloader.slice_time[-1]=train_dataloader.slice_time[-1]+(train_dataloader.end_record_time -  train_dataloader.start_record_time)*1000
                 torch.cuda.synchronize()
-                start_time = time.time()
-            elif train_dataloader.whether_time_time_cudaevent == 2: 
-                end_event.record(torch.cuda.current_stream())
-                end_event.synchronize()
-                step_elapsed = start_event.elapsed_time(end_event) 
-                slice_time.append(step_elapsed)
+                start_record_time = time.time()
+            else:
+                train_dataloader.end_record_time.record(torch.cuda.current_stream())
+                train_dataloader.end_record_time.synchronize()
+                train_dataloader.slice_time[-1]=train_dataloader.slice_time[-1]+train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time)
                 torch.cuda.synchronize()
-                start_event.record(torch.cuda.current_stream())
-            
+                train_dataloader.start_record_time.record(torch.cuda.current_stream())
             y_hat = model(blocks, x)
             loss = F.cross_entropy(y_hat, y)
             opt.zero_grad()
             loss.backward()
             opt.step()
             total_loss += loss.item()
-            
-            
-            if train_dataloader.whether_time_time_cudaevent == 3:
+            if train_dataloader.whether_time_time_cudaevent == 0:
                 torch.cuda.synchronize()
-                end_time = time.time()
-                train_time.append((end_time-start_time)*1000)
+                end_record_time=time.time()
+                train_dataloader.train_time.append((end_record_time -  start_record_time)*1000)
                 torch.cuda.synchronize()
-                start_time = time.time()
-            elif train_dataloader.whether_time_time_cudaevent == 2: 
-                end_event.record(torch.cuda.current_stream())
-                end_event.synchronize()
-                step_elapsed = start_event.elapsed_time(end_event) 
-                train_time.append(step_elapsed)
-                
+                train_dataloader.start_record_time= time.time()
+            else:
+                train_dataloader.end_record_time.record(torch.cuda.current_stream())
+                train_dataloader.end_record_time.synchronize()
+                train_dataloader.train_time.append(train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time))
                 torch.cuda.synchronize()
-                start_event.record(torch.cuda.current_stream())
+                train_dataloader.start_record_time.record(torch.cuda.current_stream())
             
+        
         ## calculate the avg time of a list
-        batch_prepare_time_avg = mean(batch_prepare_time[-11:-1])
-        data_tansfer_time_avg = mean(data_tansfer_time[-11:-1])
-        train_time_avg = mean(train_time[-11:-1])
-        slice_time_avg = mean(slice_time[-11:-1])
-        all_avg = batch_prepare_time_avg + data_tansfer_time_avg + train_time_avg+slice_time_avg
+        sample_and_datatrans_avg = mean(train_dataloader.sample_and_datatrans_time[-11:-1])
+        # data_tansfer_time_avg = mean(data_tansfer_time[-11:-1])
+        train_time_avg = mean(train_dataloader.train_time[-11:-1])
+        slice_time_avg = mean(train_dataloader.slice_time[-11:-1])
+        all_avg = sample_and_datatrans_avg +  train_time_avg+slice_time_avg
         
-        print('batch_prepare_time: ', batch_prepare_time)
-        print('slice_time: ', slice_time)
-        print('data_tansfer_time: ', data_tansfer_time)
-        print('train_time: ', train_time)
+        print('sample_and_datatrans: ',train_dataloader.sample_and_datatrans_time)
+        print('slice_time: ', train_dataloader.slice_time)
+        # print('data_tansfer_time: ', data_tansfer_time)
+        print('train_time: ', train_dataloader.train_time)
         
-        print('batch_prepare_time_avg: ', batch_prepare_time_avg)
+        print('sample_and_datatrans_avg: ', sample_and_datatrans_avg)
         print('slice_time_avg: ', slice_time_avg)
-        print('data_tansfer_time_avg: ', data_tansfer_time_avg)
+        # print('data_tansfer_time_avg: ', data_tansfer_time_avg)
         print('train_time_avg: ', train_time_avg)
         print('all_avg: ', all_avg)        
         
-        acc = evaluate(model, g, val_dataloader)
+        # acc = evaluate(model, g, val_dataloader)
         print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
               .format(epoch, total_loss / (it+1), acc.item()))
 
@@ -230,23 +218,23 @@ if __name__ == '__main__':
                         help="Training mode. 'cpu' for CPU training, 'mixed' for CPU-GPU mixed training, "
                              "'puregpu' for pure-GPU training.")
     args = parser.parse_args()
+    
+    
+    
     if not torch.cuda.is_available():
         args.mode = 'cpu'
     print(f'Training in {args.mode} mode.')
-    
-    ## 2 stand for using cuda event 3 stand for using time.time
-    whether_time_time_cudaevent =3
-    print('whether_time_time_cudaevent: ', whether_time_time_cudaevent)
-    
-    import os
-
-    filename = os.path.basename(__file__)
-    print(filename)
 
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset_name='ogbn-papers100M'
+    dataset_name='ogbn-arxiv'
+    
+    whether_time_time_or_cudaevent=1
+    uva_or_not=True
+    print('whether_time_time_or_cudaevent: ', whether_time_time_or_cudaevent)
+    print('uva_or_not: ', uva_or_not)
+    print('dataset_name: ', dataset_name)
     dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
     print('dataset: ', dataset_name)
     g = dataset[0]
@@ -254,6 +242,7 @@ if __name__ == '__main__':
     device = torch.device('cpu' if args.mode == 'cpu' else 'cuda')
 
     # create GraphSAGE model
+    # import pdb; pdb.set_trace()
     in_size = g.ndata['feat'].shape[1]
     out_size = dataset.num_classes
     print('in_size', in_size)
@@ -267,7 +256,6 @@ if __name__ == '__main__':
 
     # model training
     print('Training...')
-    
     proflie=True
     train(args, device, g, dataset, model)
     

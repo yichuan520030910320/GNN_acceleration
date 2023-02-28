@@ -166,15 +166,10 @@ if __name__ == '__main__':
             ],
             profile_memory=True,
             schedule=torch.profiler.schedule(wait=0, warmup=0, active=1, repeat=1),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler('./reproduce_gpu/product_1'),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler('./reproduce_gpu/product_2'),
             record_shapes=True,
             with_stack=True)
         prof.start()
-        # for step, batch_data in enumerate(train_loader):
-        #     if step >= (1 + 1 + 3) * 2:
-        #         break
-        #     train(batch_data)
-        #     prof.step()
         train(args, device, g, dataset, model)
         prof.stop()
     else:
