@@ -120,11 +120,12 @@ def train(args, device, g, dataset, model):
         data_tansfer_time = []
         train_time = []
         slice_time = []
+        feature_data_trans=[]
         
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print('it: ', it)
             
-            if it> 20:
+            if it> 30:
                 break
             
             if train_dataloader.whether_time_time_cudaevent == 3:
@@ -146,35 +147,43 @@ def train(args, device, g, dataset, model):
                 torch.cuda.synchronize()
                 end_time = time.time()
                 data_tansfer_time.append((end_time-start_time)*1000)
-                torch.cuda.synchronize()
-                start_time = time.time()
+                
             elif train_dataloader.whether_time_time_cudaevent == 2: 
                 end_event.record(torch.cuda.current_stream())
                 end_event.synchronize()
                 step_elapsed = start_event.elapsed_time(end_event) 
                 data_tansfer_time.append(step_elapsed)
-                torch.cuda.synchronize()
-                start_event.record(torch.cuda.current_stream())
+                
             
-            x = blocks[0].srcdata['feat']
-            if paper_100m==True:
-                y = blocks[-1].dstdata['label'].to(torch.int64)
+            profile_fine_grained = True
+            if profile_fine_grained==True:
+                x, dgl_slice_time, dgl_feature_trans_time = blocks[0].srcdata['feat']
+                slice_time.append(dgl_slice_time)
+                feature_data_trans.append(dgl_feature_trans_time)
+                if paper_100m==True:
+                    y, dgl_slice_time, dgl_feature_trans_time = blocks[-1].dstdata['label']
+                    y=y.to(torch.int64)
+                    slice_time[-1]+=dgl_slice_time
+                    feature_data_trans[-1]+=dgl_feature_trans_time
+                else:
+                    y , dgl_slice_time, dgl_feature_trans_time= blocks[-1].dstdata['label']
+                    slice_time[-1]+=dgl_slice_time
+                    feature_data_trans[-1]+=dgl_feature_trans_time
             else:
-                y = blocks[-1].dstdata['label']
+                x= blocks[0].srcdata['feat']
+                if paper_100m==True:
+                    y = blocks[-1].dstdata['label'].to(torch.int64)
+                else:
+                    y= blocks[-1].dstdata['label']
             
             
             
             if train_dataloader.whether_time_time_cudaevent == 3:
-                torch.cuda.synchronize()
-                end_time = time.time()
-                slice_time.append((end_time-start_time)*1000)
+                
                 torch.cuda.synchronize()
                 start_time = time.time()
             elif train_dataloader.whether_time_time_cudaevent == 2: 
-                end_event.record(torch.cuda.current_stream())
-                end_event.synchronize()
-                step_elapsed = start_event.elapsed_time(end_event) 
-                slice_time.append(step_elapsed)
+                
                 torch.cuda.synchronize()
                 start_event.record(torch.cuda.current_stream())
             
@@ -201,19 +210,22 @@ def train(args, device, g, dataset, model):
                 start_event.record(torch.cuda.current_stream())
             
         ## calculate the avg time of a list
-        batch_prepare_time_avg = mean(batch_prepare_time[-11:-1])
-        data_tansfer_time_avg = mean(data_tansfer_time[-11:-1])
-        train_time_avg = mean(train_time[-11:-1])
-        slice_time_avg = mean(slice_time[-11:-1])
-        all_avg = batch_prepare_time_avg + data_tansfer_time_avg + train_time_avg+slice_time_avg
+        batch_prepare_time_avg = mean(batch_prepare_time[-15:-1])
+        data_tansfer_time_avg = mean(data_tansfer_time[-15:-1])
+        train_time_avg = mean(train_time[-15:-1])
+        slice_time_avg = mean(slice_time[-15:-1])
+        feature_data_transition_time_avg = mean(feature_data_trans[-15:-1])
+        all_avg = batch_prepare_time_avg + data_tansfer_time_avg + train_time_avg+slice_time_avg+feature_data_transition_time_avg
         
         print('batch_prepare_time: ', batch_prepare_time)
         print('slice_time: ', slice_time)
+        print('feature slice',feature_data_trans)
         print('data_tansfer_time: ', data_tansfer_time)
         print('train_time: ', train_time)
         
         print('batch_prepare_time_avg: ', batch_prepare_time_avg)
         print('slice_time_avg: ', slice_time_avg)
+        print('feature_data_transition_time_avg: ', feature_data_transition_time_avg)
         print('data_tansfer_time_avg: ', data_tansfer_time_avg)
         print('train_time_avg: ', train_time_avg)
         print('all_avg: ', all_avg)        
@@ -233,7 +245,7 @@ if __name__ == '__main__':
     print(f'Training in {args.mode} mode.')
     
     ## 2 stand for using cuda event 3 stand for using time.time do not need to break down
-    whether_time_time_cudaevent =2
+    whether_time_time_cudaevent = 3
     print('whether_time_time_cudaevent: ', whether_time_time_cudaevent)
     
     import os
@@ -244,7 +256,7 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset_name='ogbn-papers100M'
+    dataset_name='ogbn-products'
     dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
     print('dataset: ', dataset_name)
     g = dataset[0]
