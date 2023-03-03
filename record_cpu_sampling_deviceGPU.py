@@ -88,17 +88,21 @@ def train(args, device, g, dataset, model):
     val_idx = dataset.val_idx.to(cpu_device)
     sampler = NeighborSampler([15, 10, 5])
     use_uva = (args.mode == 'mixed')
-    train_dataloader = DataLoader(g, train_idx, sampler, device=cpu_device,
+    pin_prefetcher_ = True
+    train_dataloader = DataLoader(g, train_idx, sampler, device=device,
                                   batch_size=1024, shuffle=True,
                                   drop_last=False, num_workers=0,
-                                  pin_prefetcher=True
+                                  pin_prefetcher=pin_prefetcher_,
+                                  use_uva=False
                                   )
     ## 2 stand for using cuda event 3 stand for using time.time
     train_dataloader.whether_time_time_cudaevent =whether_time_time_cudaevent
 
-    val_dataloader = DataLoader(g, val_idx, sampler, device=cpu_device,
+    val_dataloader = DataLoader(g, val_idx, sampler, device=device,
                                 batch_size=1024, shuffle=True,
                                 drop_last=False, num_workers=0,
+                                pin_prefetcher=pin_prefetcher_,
+                                use_uva=False
                                 )
     
     val_dataloader.whether_time_time_cudaevent =whether_time_time_cudaevent

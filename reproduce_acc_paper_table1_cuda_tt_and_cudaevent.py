@@ -152,6 +152,7 @@ def train(args, device, g, dataset, model):
                 train_dataloader.end_record_time.record(torch.cuda.current_stream())
                 train_dataloader.end_record_time.synchronize()
                 train_dataloader.slice_time.append(train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time))
+                train_dataloader.start_record_time.record(torch.cuda.current_stream())
             # import pdb; pdb.set_trace()
             x = blocks[0].srcdata['feat']
             if paper_100m==True:
@@ -161,12 +162,22 @@ def train(args, device, g, dataset, model):
             if train_dataloader.whether_time_time_cudaevent == 0:
                 torch.cuda.synchronize()
                 train_dataloader.end_record_time  = time.time()
+                
+                ##TODO
+                print('slice time: ', train_dataloader.slice_time[-1])
+                print((train_dataloader.end_record_time -  train_dataloader.start_record_time)*1000)
+                
                 train_dataloader.slice_time[-1]=train_dataloader.slice_time[-1]+(train_dataloader.end_record_time -  train_dataloader.start_record_time)*1000
                 torch.cuda.synchronize()
                 start_record_time = time.time()
             else:
                 train_dataloader.end_record_time.record(torch.cuda.current_stream())
                 train_dataloader.end_record_time.synchronize()
+                
+                ##TODO
+                print('slice time: ', train_dataloader.slice_time[-1])
+                print(train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time))
+                
                 train_dataloader.slice_time[-1]=train_dataloader.slice_time[-1]+train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time)
                 torch.cuda.synchronize()
                 train_dataloader.start_record_time.record(torch.cuda.current_stream())
