@@ -92,7 +92,7 @@ def train(args, device, g, dataset, model):
     train_dataloader = DataLoader(g, train_idx, sampler, device=device,
                                   batch_size=1024, shuffle=True,
                                   drop_last=False, num_workers=0,
-                                  pin_prefetcher=pin_prefetcher_,
+                                #   pin_prefetcher=pin_prefetcher_,
                                   use_uva=False
                                   )
     ## 2 stand for using cuda event 3 stand for using time.time
@@ -101,7 +101,7 @@ def train(args, device, g, dataset, model):
     val_dataloader = DataLoader(g, val_idx, sampler, device=device,
                                 batch_size=1024, shuffle=True,
                                 drop_last=False, num_workers=0,
-                                pin_prefetcher=pin_prefetcher_,
+                                # pin_prefetcher=pin_prefetcher_,
                                 use_uva=False
                                 )
     
@@ -160,7 +160,7 @@ def train(args, device, g, dataset, model):
                 data_tansfer_time.append(step_elapsed)
                 
             
-            profile_fine_grained = True
+            profile_fine_grained = False
             if profile_fine_grained==True:
                 x, dgl_slice_time, dgl_feature_trans_time = blocks[0].srcdata['feat']
                 slice_time.append(dgl_slice_time)
@@ -250,7 +250,7 @@ if __name__ == '__main__':
     print(f'Training in {args.mode} mode.')
     
     ## 2 stand for using cuda event 3 stand for using time.time do not need to break down
-    whether_time_time_cudaevent = 3
+    whether_time_time_cudaevent = 2
     print('whether_time_time_cudaevent: ', whether_time_time_cudaevent)
     
     import os

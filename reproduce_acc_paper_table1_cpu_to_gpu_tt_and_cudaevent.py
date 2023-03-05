@@ -91,7 +91,7 @@ def train(args, device, g, dataset, model):
     train_dataloader = DataLoader(g, train_idx, sampler, device=cpu_device,
                                   batch_size=1024, shuffle=True,
                                   drop_last=False, num_workers=0,
-                                  pin_prefetcher=True
+                                #   pin_prefetcher=True
                                   )
     ## 2 stand for using cuda event 3 stand for using time.time
     train_dataloader.whether_time_time_cudaevent =whether_time_time_cudaevent

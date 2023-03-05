@@ -3,30 +3,35 @@ import time
 avg_wo_pin=[]
 avg_w_pin=[]
 
-for i in range(10):
-
-    SIZE=128
+SIZE=128
     # Define the size of the tensor
     # N =32 * 10
     # C = 10
     # H = 10
     # W = 128
     
-    N=SIZE
-    C=SIZE
-    H=SIZE
-    W=SIZE
+N=SIZE
+C=SIZE
+H=SIZE
+W=SIZE
+import random
+shape = (N, C, H, W)
 
-    # Allocate a tensor on CPU
-    cpu_tensor = torch.randn(N, C, H, W)
+# Allocate a tensor on CPU
+cpu_tensor = torch.randn(*shape)
 
-    # Allocate a tensor on CPU pinned memory
-    pinned_tensor = torch.empty(N, C, H, W, pin_memory=True)
-    pinned_tensor.copy_(cpu_tensor)
+# Allocate a tensor on CPU pinned memory
+pinned_tensor = torch.empty(*shape, pin_memory=True)
+pinned_tensor.copy_(cpu_tensor)
 
-    # Allocate a tensor on GPU
-    device = torch.device('cuda')
-    gpu_tensor = torch.randn(N, C, H, W).to(device)
+# Allocate a tensor on GPU
+device = torch.device('cuda')
+gpu_tensor = torch.empty(*shape).to(device)
+
+torch.cuda.synchronize()
+for i in range(10):
+    cpu_tensor += random.random() - 0.5
+    pinned_tensor += random.random() - 0.5
 
     # Test the time to transfer the tensor from CPU to GPU without pinned memory
     torch.cuda.synchronize()
@@ -52,5 +57,5 @@ print("Average time with pinned memory: {:.4f} mseconds".format(avg_w_pin*1000))
 
 print('ratio of time with pinned memory to without pinned memory: {:.4f} '.format(avg_w_pin/avg_wo_pin))
 #128 128 128 128
-# Average time with pinned memory: 87.0729 mseconds
-# ratio of time with pinned memory to without pinned memory: 0.3498 
+# Average time without pinned memory: 0.8317 seconds
+# Average time with pinned memory: 0.0902 seconds
