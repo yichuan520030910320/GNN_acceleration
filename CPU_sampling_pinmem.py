@@ -92,14 +92,14 @@ def train(args, device, g, dataset, model):
     train_dataloader = DataLoader(g, train_idx, sampler, device=device,
                                   batch_size=1024, shuffle=True,
                                   drop_last=False, num_workers=0,
-                                  pin_prefetcher=pin_prefetcher_,
+                                #   pin_prefetcher=pin_prefetcher_,
                                   use_uva=False
                                   )
 
     val_dataloader = DataLoader(g, val_idx, sampler, device=device,
                                 batch_size=1024, shuffle=True,
                                 drop_last=False, num_workers=0,
-                                pin_prefetcher=pin_prefetcher_,
+                                # pin_prefetcher=pin_prefetcher_,
                                 use_uva=False
                                 )
     
@@ -171,7 +171,7 @@ if __name__ == '__main__':
     
     proflie=True
     
-    file_name='./reproduce/true_pin_memory_cpu_to_gpu'+str(dataset_name)
+    file_name='./reproduce/true_pinmemory_cpu_to_gpu1'+str(dataset_name)
     if proflie==True:
         prof = torch.profiler.profile(
             activities=[
