@@ -131,7 +131,7 @@ def train(args, device, g, dataset, model):
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print('it: ', it)
             
-            if it> 30:
+            if it> 50:
                 break
             
             if train_dataloader.whether_time_time_cudaevent == 3:
@@ -161,8 +161,8 @@ def train(args, device, g, dataset, model):
                 block_pin.append(step_elapsed)
                 torch.cuda.synchronize()
                 start_event.record(torch.cuda.current_stream())
-                
-                
+            block0_id=blocks[0].srcdata['_ID']
+            block_last_id=blocks[-1].dstdata['_ID']
             blocks = [b.to(device) for b in blocks]
             if train_dataloader.whether_time_time_cudaevent == 3:
                 torch.cuda.synchronize()
@@ -192,8 +192,8 @@ def train(args, device, g, dataset, model):
                     slice_time[-1]+=dgl_slice_time
                     feature_data_trans[-1]+=dgl_feature_trans_time
             else:
-                block0_id=blocks[0].srcdata['_ID'].to(cpu_device)
-                x=torch.index_select(train_dataloader.graph.ndata['feat'], 0, block0_id).pin_memory()
+                x = torch.empty(block0_id.shape[0],in_size, pin_memory=True)
+                torch.index_select(train_dataloader.graph.ndata['feat'], 0, block0_id,out=x)
                 if train_dataloader.whether_time_time_cudaevent == 3:
                     torch.cuda.synchronize()
                     end_time = time.time()
@@ -221,13 +221,16 @@ def train(args, device, g, dataset, model):
                     feature_data_trans.append(step_elapsed)
                     torch.cuda.synchronize()
                     start_event.record(torch.cuda.current_stream())
+                
+                
                 # x= blocks[0].srcdata['feat']
                 if paper_100m==True:
                     y = blocks[-1].dstdata['label'].to(torch.int64)
                 else:
                     # y= blocks[-1].dstdata['label']
-                    block_last_id=blocks[-1].dstdata['_ID'].to(cpu_device)
-                    y=torch.index_select(train_dataloader.graph.ndata['label'], 0,block_last_id).pin_memory()
+                    
+                    y = torch.empty(block_last_id.shape[0], pin_memory=True).to(torch.int64)
+                    torch.index_select(train_dataloader.graph.ndata['label'], 0, block_last_id,out=y)
                     if train_dataloader.whether_time_time_cudaevent == 3:
                         torch.cuda.synchronize()
                         end_time = time.time()
@@ -241,10 +244,7 @@ def train(args, device, g, dataset, model):
                         slice_time[-1]+=append(step_elapsed)
                         torch.cuda.synchronize()
                         start_event.record(torch.cuda.current_stream())
-                    
                     y=y.to(device)
-
-
                     if train_dataloader.whether_time_time_cudaevent == 3:
                         torch.cuda.synchronize()
                         end_time = time.time()
@@ -314,7 +314,7 @@ def train(args, device, g, dataset, model):
         acc = evaluate(model, g, val_dataloader)
         print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
               .format(epoch, total_loss / (it+1), acc.item()))
-
+        exit(0)
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", default='mixed', choices=['cpu', 'mixed', 'puregpu'],
