@@ -231,6 +231,7 @@ def train(args, device, g, dataset, model):
         print('train_time_avg: ', train_time_avg)
         print('all_avg: ', all_avg)        
         
+        exit(0)
         acc = evaluate(model, g, val_dataloader)
         print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
               .format(epoch, total_loss / (it+1), acc.item()))

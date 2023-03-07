@@ -164,8 +164,8 @@ def train(args, device, g, dataset, model):
                 train_dataloader.end_record_time  = time.time()
                 
                 ##TODO
-                print('slice time: ', train_dataloader.slice_time[-1])
-                print((train_dataloader.end_record_time -  train_dataloader.start_record_time)*1000)
+                # print('slice time: ', train_dataloader.slice_time[-1])
+                # print((train_dataloader.end_record_time -  train_dataloader.start_record_time)*1000)
                 
                 train_dataloader.slice_time[-1]=train_dataloader.slice_time[-1]+(train_dataloader.end_record_time -  train_dataloader.start_record_time)*1000
                 torch.cuda.synchronize()
@@ -175,8 +175,8 @@ def train(args, device, g, dataset, model):
                 train_dataloader.end_record_time.synchronize()
                 
                 ##TODO
-                print('slice time: ', train_dataloader.slice_time[-1])
-                print(train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time))
+                # print('slice time: ', train_dataloader.slice_time[-1])
+                # print(train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time))
                 
                 train_dataloader.slice_time[-1]=train_dataloader.slice_time[-1]+train_dataloader.end_record_time.elapsed_time(train_dataloader.start_record_time)
                 torch.cuda.synchronize()
@@ -210,15 +210,13 @@ def train(args, device, g, dataset, model):
         
         print('sample_and_datatrans: ',train_dataloader.sample_and_datatrans_time)
         print('slice_time: ', train_dataloader.slice_time)
-        # print('data_tansfer_time: ', data_tansfer_time)
         print('train_time: ', train_dataloader.train_time)
         
         print('sample_and_datatrans_avg: ', sample_and_datatrans_avg)
         print('slice_time_avg: ', slice_time_avg)
-        # print('data_tansfer_time_avg: ', data_tansfer_time_avg)
         print('train_time_avg: ', train_time_avg)
         print('all_avg: ', all_avg)        
-        
+        exit(0)
         # acc = evaluate(model, g, val_dataloader)
         print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
               .format(epoch, total_loss / (it+1), acc.item()))

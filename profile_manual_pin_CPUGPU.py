@@ -81,6 +81,9 @@ def layerwise_infer(device, graph, nid, model, batch_size):
         return MF.accuracy(pred, label,task='multiclass',num_classes=out_size)
 
 def train(args, device, g, dataset, model):
+    
+   
+    
     # create sampler & dataloader
     cpu_device=torch.device('cpu')
     # print('dataset device: ', dataset.train_idx.device)
@@ -107,10 +110,12 @@ def train(args, device, g, dataset, model):
     
     val_dataloader.whether_time_time_cudaevent =whether_time_time_cudaevent
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
+    
     for epoch in range(1):
         model.train()
         total_loss = 0
         import time
+        
         
         if train_dataloader.whether_time_time_cudaevent == 3:
             torch.cuda.synchronize()
@@ -128,55 +133,44 @@ def train(args, device, g, dataset, model):
         feature_data_trans=[]
         block_pin=[]
         
+        def profile_time(profile_list,add_last_time=False):
+            nonlocal start_time
+            nonlocal start_event
+            nonlocal end_event
+            if train_dataloader.whether_time_time_cudaevent == 3:
+                torch.cuda.synchronize()
+                end_time = time.time()
+                if add_last_time==True:
+                    profile_list[-1]+=((end_time-start_time)*1000)
+                else:
+                    profile_list.append((end_time-start_time)*1000)
+                torch.cuda.synchronize()
+                start_time = time.time()
+            elif train_dataloader.whether_time_time_cudaevent == 2:
+                end_event.record(torch.cuda.current_stream())
+                end_event.synchronize()
+                step_elapsed = start_event.elapsed_time(end_event) 
+                if add_last_time==True:
+                    profile_list[-1]+=step_elapsed
+                else:
+                    profile_list.append(step_elapsed)
+                torch.cuda.synchronize()
+                start_event.record(torch.cuda.current_stream())
+        
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print('it: ', it)
             
             if it> 50:
                 break
             
-            if train_dataloader.whether_time_time_cudaevent == 3:
-                torch.cuda.synchronize()
-                end_time = time.time()
-                batch_prepare_time.append((end_time-start_time)*1000)
-                torch.cuda.synchronize()
-                start_time = time.time()
-            elif train_dataloader.whether_time_time_cudaevent == 2:
-                end_event.record(torch.cuda.current_stream())
-                end_event.synchronize()
-                step_elapsed = start_event.elapsed_time(end_event) 
-                batch_prepare_time.append(step_elapsed)
-                torch.cuda.synchronize()
-                start_event.record(torch.cuda.current_stream())
+            profile_time(batch_prepare_time)
             # blocks = [b.pin_memory_() for b in blocks]
-            if train_dataloader.whether_time_time_cudaevent == 3:
-                torch.cuda.synchronize()
-                end_time = time.time()
-                block_pin.append((end_time-start_time)*1000)
-                torch.cuda.synchronize()
-                start_time = time.time()
-            elif train_dataloader.whether_time_time_cudaevent == 2:
-                end_event.record(torch.cuda.current_stream())
-                end_event.synchronize()
-                step_elapsed = start_event.elapsed_time(end_event) 
-                block_pin.append(step_elapsed)
-                torch.cuda.synchronize()
-                start_event.record(torch.cuda.current_stream())
+            profile_time(block_pin)
+            
             block0_id=blocks[0].srcdata['_ID']
             block_last_id=blocks[-1].dstdata['_ID']
             blocks = [b.to(device) for b in blocks]
-            if train_dataloader.whether_time_time_cudaevent == 3:
-                torch.cuda.synchronize()
-                end_time = time.time()
-                data_tansfer_time.append((end_time-start_time)*1000)
-                torch.cuda.synchronize()
-                start_time = time.time()
-            elif train_dataloader.whether_time_time_cudaevent == 2: 
-                end_event.record(torch.cuda.current_stream())
-                end_event.synchronize()
-                step_elapsed = start_event.elapsed_time(end_event) 
-                data_tansfer_time.append(step_elapsed)
-                torch.cuda.synchronize()
-                start_event.record(torch.cuda.current_stream())
+            profile_time(data_tansfer_time)
             profile_fine_grained = False
             if profile_fine_grained==True:
                 x, dgl_slice_time, dgl_feature_trans_time = blocks[0].srcdata['feat']
@@ -194,34 +188,9 @@ def train(args, device, g, dataset, model):
             else:
                 x = torch.empty(block0_id.shape[0],in_size, pin_memory=True)
                 torch.index_select(train_dataloader.graph.ndata['feat'], 0, block0_id,out=x)
-                if train_dataloader.whether_time_time_cudaevent == 3:
-                    torch.cuda.synchronize()
-                    end_time = time.time()
-                    slice_time.append((end_time-start_time)*1000)
-                    torch.cuda.synchronize()
-                    start_time = time.time()
-                elif train_dataloader.whether_time_time_cudaevent == 2: 
-                    end_event.record(torch.cuda.current_stream())
-                    end_event.synchronize()
-                    step_elapsed = start_event.elapsed_time(end_event) 
-                    slice_time.append(step_elapsed)
-                    torch.cuda.synchronize()
-                    start_event.record(torch.cuda.current_stream())
+                profile_time(slice_time)
                 x=x.to(device)
-                if train_dataloader.whether_time_time_cudaevent == 3:
-                    torch.cuda.synchronize()
-                    end_time = time.time()
-                    feature_data_trans.append((end_time-start_time)*1000)
-                    torch.cuda.synchronize()
-                    start_time = time.time()
-                elif train_dataloader.whether_time_time_cudaevent == 2: 
-                    end_event.record(torch.cuda.current_stream())
-                    end_event.synchronize()
-                    step_elapsed = start_event.elapsed_time(end_event) 
-                    feature_data_trans.append(step_elapsed)
-                    torch.cuda.synchronize()
-                    start_event.record(torch.cuda.current_stream())
-                
+                profile_time(feature_data_trans)
                 
                 # x= blocks[0].srcdata['feat']
                 if paper_100m==True:
@@ -231,61 +200,16 @@ def train(args, device, g, dataset, model):
                     
                     y = torch.empty(block_last_id.shape[0], pin_memory=True).to(torch.int64)
                     torch.index_select(train_dataloader.graph.ndata['label'], 0, block_last_id,out=y)
-                    if train_dataloader.whether_time_time_cudaevent == 3:
-                        torch.cuda.synchronize()
-                        end_time = time.time()
-                        slice_time[-1]+=((end_time-start_time)*1000)
-                        torch.cuda.synchronize()
-                        start_time = time.time()
-                    elif train_dataloader.whether_time_time_cudaevent == 2: 
-                        end_event.record(torch.cuda.current_stream())
-                        end_event.synchronize()
-                        step_elapsed = start_event.elapsed_time(end_event) 
-                        slice_time[-1]+=append(step_elapsed)
-                        torch.cuda.synchronize()
-                        start_event.record(torch.cuda.current_stream())
+                    profile_time(slice_time,add_last_time=True)
                     y=y.to(device)
-                    if train_dataloader.whether_time_time_cudaevent == 3:
-                        torch.cuda.synchronize()
-                        end_time = time.time()
-                        feature_data_trans[-1]+=((end_time-start_time)*1000)
-                    elif train_dataloader.whether_time_time_cudaevent == 2: 
-                        end_event.record(torch.cuda.current_stream())
-                        end_event.synchronize()
-                        step_elapsed = start_event.elapsed_time(end_event) 
-                        feature_data_trans[-1]+=(step_elapsed)
-            
-            
-            if train_dataloader.whether_time_time_cudaevent == 3:
-                
-                torch.cuda.synchronize()
-                start_time = time.time()
-            elif train_dataloader.whether_time_time_cudaevent == 2: 
-                
-                torch.cuda.synchronize()
-                start_event.record(torch.cuda.current_stream())
-            
+                    profile_time(feature_data_trans,add_last_time=True)
             y_hat = model(blocks, x)
             loss = F.cross_entropy(y_hat, y)
             opt.zero_grad()
             loss.backward()
             opt.step()
             total_loss += loss.item()
-            
-            
-            if train_dataloader.whether_time_time_cudaevent == 3:
-                torch.cuda.synchronize()
-                end_time = time.time()
-                train_time.append((end_time-start_time)*1000)
-                torch.cuda.synchronize()
-                start_time = time.time()
-            elif train_dataloader.whether_time_time_cudaevent == 2: 
-                end_event.record(torch.cuda.current_stream())
-                end_event.synchronize()
-                step_elapsed = start_event.elapsed_time(end_event) 
-                train_time.append(step_elapsed)
-                torch.cuda.synchronize()
-                start_event.record(torch.cuda.current_stream())
+            profile_time(train_time)
             
         ## calculate the avg time of a list
         batch_prepare_time_avg = mean(batch_prepare_time[-15:-1])
@@ -337,7 +261,7 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset_name='ogbn-products'
+    dataset_name='ogbn-arxiv'
     dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
     print('dataset: ', dataset_name)
     g = dataset[0]
