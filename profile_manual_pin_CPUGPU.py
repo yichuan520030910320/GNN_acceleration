@@ -10,7 +10,6 @@ from ogb.nodeproppred import DglNodePropPredDataset
 import tqdm
 import argparse
 from numpy import *
-
 class SAGE(nn.Module):
     def __init__(self, in_size, hid_size, out_size):
         super().__init__()
@@ -82,7 +81,9 @@ def layerwise_infer(device, graph, nid, model, batch_size):
 
 def train(args, device, g, dataset, model):
     
-   
+    ##TODO
+    global profile_in_frame
+    profile_in_frame=True
     
     # create sampler & dataloader
     cpu_device=torch.device('cpu')
@@ -172,6 +173,7 @@ def train(args, device, g, dataset, model):
             blocks = [b.to(device) for b in blocks]
             profile_time(data_tansfer_time)
             profile_fine_grained = False
+            profile_together = False
             if profile_fine_grained==True:
                 x, dgl_slice_time, dgl_feature_trans_time = blocks[0].srcdata['feat']
                 slice_time.append(dgl_slice_time)
@@ -185,6 +187,24 @@ def train(args, device, g, dataset, model):
                     y , dgl_slice_time, dgl_feature_trans_time= blocks[-1].dstdata['label']
                     slice_time[-1]+=dgl_slice_time
                     feature_data_trans[-1]+=dgl_feature_trans_time
+            elif profile_together==False:
+                x = torch.empty(block0_id.shape[0],in_size, pin_memory=True)
+                torch.index_select(train_dataloader.graph.ndata['feat'], 0, block0_id,out=x)
+                profile_time(slice_time)
+                x=x.to(device)
+                profile_time(feature_data_trans)
+                
+                # x= blocks[0].srcdata['feat']
+                if paper_100m==True:
+                    y = blocks[-1].dstdata['label'].to(torch.int64)
+                else:
+                    # y= blocks[-1].dstdata['label']
+                    
+                    y = torch.empty(block_last_id.shape[0], pin_memory=True,dtype=torch.int64)
+                    torch.index_select(train_dataloader.graph.ndata['label'], 0, block_last_id,out=y)
+                    profile_time(slice_time,add_last_time=True)
+                    y=y.to(device)
+                    profile_time(feature_data_trans,add_last_time=True)
             else:
                 x = torch.empty(block0_id.shape[0],in_size, pin_memory=True)
                 torch.index_select(train_dataloader.graph.ndata['feat'], 0, block0_id,out=x)
@@ -198,7 +218,7 @@ def train(args, device, g, dataset, model):
                 else:
                     # y= blocks[-1].dstdata['label']
                     
-                    y = torch.empty(block_last_id.shape[0], pin_memory=True).to(torch.int64)
+                    y = torch.empty(block_last_id.shape[0], pin_memory=True,dtype=torch.int64)
                     torch.index_select(train_dataloader.graph.ndata['label'], 0, block_last_id,out=y)
                     profile_time(slice_time,add_last_time=True)
                     y=y.to(device)
@@ -234,7 +254,7 @@ def train(args, device, g, dataset, model):
         print('feature_data_transition_time_avg: ', feature_data_transition_time_avg)
         print('train_time_avg: ', train_time_avg)
         print('all_avg: ', all_avg)        
-        
+        exit(0)
         acc = evaluate(model, g, val_dataloader)
         print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
               .format(epoch, total_loss / (it+1), acc.item()))
@@ -261,7 +281,7 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset_name='ogbn-arxiv'
+    dataset_name='ogbn-products'
     dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
     print('dataset: ', dataset_name)
     g = dataset[0]
