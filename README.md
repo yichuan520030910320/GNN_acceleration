@@ -1,29 +1,37 @@
 GraphSAGE
 ============
+## how to use
+(upd in 3/10 note that just the follwoing three file are needed)
+
+1.
+python profile_cuda_tt_and_cudaevent.py --dataset [datasetname] 
+
+> --dataset choices=['ogbn-products','ogbn-papers100M','ogbn-arxiv']
+
+note: this command was used to profile GPU sampling but it can just run in my environment because I add some code in DGL
+
+2.
+
+python profile_manual_pin_CPUGPU.py --dataset [datasetname]
+
+> --dataset choices=['ogbn-products','ogbn-papers100M','ogbn-arxiv']
+
+note : this command was used to profile CPU sampling and I modify the original DGL training process(just in the `profile_manual_pin_CPUGPU.py` file ) to pin the slice feature  it can run on any machine because all of the profile code was in the `profile_manual_pin_CPUGPU.py` rather than DGL code
+
+3.
+
+python profile_cpu_to_gpu_tt_and_cudaevent.py --dataset [datasetname]
+
+> --dataset choices=['ogbn-products','ogbn-papers100M','ogbn-arxiv']
+
+note: this command was used to profile CPU sampling(wo pin the slice feature) but it can just run in my environment because I add some code in DGL
 
 
-Requirements
-------------
-
-```bash
-pip install requests torchmetrics
-```
 
 
-## baseline result
+## result image
 
-<!-- ![alt 属性文本]( https://files.slack.com/files-pri/TR41NUQES-F04PV6FCFSR/image.png)
-
-
-<img src="https://files.slack.com/files-pri/TR41NUQES-F04PV6FCFSR/image.png" alt="图片alt" title="图片title">
-
-
-
-![CSDN图标](https://csdnimg.cn/cdn/content-toolbar/csdn-logo_.png?v=20190924.1 "CSDN图标") -->
-
-![image.png](https://s2.loli.net/2023/02/16/QaxvnSr31jgzuDB.png)
-
-
+![profile_result.png](https://s2.loli.net/2023/03/10/WNrUEAfvPznRg1u.png)
 
 ### configuration 
 batch size:1024,
@@ -95,6 +103,21 @@ for epoch in range(1):
       opt.step()
       total_loss += loss.item()
 ```
+
+## baseline result
+
+<!-- ![alt 属性文本]( https://files.slack.com/files-pri/TR41NUQES-F04PV6FCFSR/image.png)
+
+
+<img src="https://files.slack.com/files-pri/TR41NUQES-F04PV6FCFSR/image.png" alt="图片alt" title="图片title">
+
+
+
+![CSDN图标](https://csdnimg.cn/cdn/content-toolbar/csdn-logo_.png?v=20190924.1 "CSDN图标") -->
+
+![image.png](https://s2.loli.net/2023/02/16/QaxvnSr31jgzuDB.png)
+
+
 
 
 ### Minibatch training for node classification

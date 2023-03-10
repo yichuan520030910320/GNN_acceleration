@@ -24,7 +24,6 @@ class SAGE(nn.Module):
         self.dropout = nn.Dropout(0.5)
         self.hid_size = hid_size
         self.out_size = out_size
-
     def forward(self, blocks, x):
         h = x
         for l, (layer, block) in enumerate(zip(self.layers, blocks)):
@@ -34,7 +33,6 @@ class SAGE(nn.Module):
                 h = F.relu(h)
                 h = self.dropout(h)
         return h
-
     def inference(self, g, device, batch_size):
         """Conduct layer-wise inference to get all the node embeddings."""
         feat = g.ndata['feat']
@@ -61,9 +59,8 @@ class SAGE(nn.Module):
                 y[output_nodes[0]:output_nodes[-1]+1] = h.to(buffer_device)
             feat = y
         return y
-
 @contextlib.contextmanager
-def profile_time(records,whether_time_time_cudaevent=2):
+def with_profile_time(records,whether_time_time_cudaevent=2):
     if whether_time_time_cudaevent==2:
         torch.cuda.synchronize()
         start = time.time()
@@ -81,9 +78,6 @@ def profile_time(records,whether_time_time_cudaevent=2):
         end_event.synchronize()
         step_elapsed = start_event.elapsed_time(end_event) 
         records.append(step_elapsed)
-        
-        
-        
 def evaluate(model, graph, dataloader):
     dataloader.device = device
     model.eval()
@@ -105,7 +99,6 @@ def layerwise_infer(device, graph, nid, model, batch_size):
         return MF.accuracy(pred, label,task='multiclass',num_classes=out_size)
 
 def train(args, device, g, dataset, model):
-    
     random.seed(1)
     numpy.random.seed(1)
     torch.manual_seed(1)
@@ -114,7 +107,6 @@ def train(args, device, g, dataset, model):
     ##TODO
     global profile_in_frame
     profile_in_frame=True
-    
     # create sampler & dataloader
     cpu_device=torch.device('cpu')
     # print('dataset device: ', dataset.train_idx.device)
@@ -138,6 +130,8 @@ def train(args, device, g, dataset, model):
                                 )
     
     val_dataloader.whether_time_time_cudaevent =whether_time_time_cudaevent
+    
+    train_dataloader.graph.ndata['label']=train_dataloader.graph.ndata['label'].to(torch.int64)
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
     avg_epoch_batch_prepare_time=[]
     avg_epoch_data_tansfer_time = []
@@ -145,12 +139,11 @@ def train(args, device, g, dataset, model):
     avg_epoch_slice_time = []
     avg_epoch_feature_data_trans=[]
     avg_epoch_block_pin=[]
+    avg_epoch_all_time=[]
     for epoch in range(5):
         model.train()
         total_loss = 0
         import time
-        
-        
         if train_dataloader.whether_time_time_cudaevent == 3:
             torch.cuda.synchronize()
             start_time = time.time()
@@ -159,14 +152,12 @@ def train(args, device, g, dataset, model):
             end_event = torch.cuda.Event(enable_timing=True)
             torch.cuda.synchronize()
             start_event.record(torch.cuda.current_stream())
-            
         batch_prepare_time =[]
         data_tansfer_time = []
         train_time = []
         slice_time = []
         feature_data_trans=[]
         block_pin=[]
-        
         def profile_time(profile_list,add_last_time=False):
             nonlocal start_time
             nonlocal start_event
@@ -193,56 +184,25 @@ def train(args, device, g, dataset, model):
         
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print('it: ', it)
-            
             if it>100:
                 break
-            
             profile_time(batch_prepare_time)
-            
-            # blocks = [b.pin_memory_() for b in blocks]
-            profile_time(block_pin)
-            
+            # # blocks = [b.pin_memory_() for b in blocks]
+            # profile_time(block_pin)
             block0_id=blocks[0].srcdata['_ID']
             block_last_id=blocks[-1].dstdata['_ID']
             blocks = [b.to(device) for b in blocks]
-            
             # print(len(block0_id))
             # print(batch_prepare_time[-1])
             profile_time(data_tansfer_time)
-            profile_together = True
-           
-            if profile_together==False:
-                x = torch.empty(block0_id.shape[0],in_size, pin_memory=True)
-                torch.index_select(train_dataloader.graph.ndata['feat'], 0, block0_id,out=x)
-                profile_time(slice_time)
-                x=x.to(device)
-                profile_time(feature_data_trans)
-                
-                # x= blocks[0].srcdata['feat']
-                if paper_100m==True:
-                    y = blocks[-1].dstdata['label'].to(torch.int64)
-                else:
-                    # y= blocks[-1].dstdata['label']
-                    
-                    y = torch.empty(block_last_id.shape[0], pin_memory=True,dtype=torch.int64)
-                    torch.index_select(train_dataloader.graph.ndata['label'], 0, block_last_id,out=y)
-                    profile_time(slice_time,add_last_time=True)
-                    y=y.to(device)
-                    profile_time(feature_data_trans,add_last_time=True)
-            else:
-                x = torch.empty(block0_id.shape[0],in_size, pin_memory=True)
-                torch.index_select(train_dataloader.graph.ndata['feat'], 0, block0_id,out=x)
-                y = torch.empty(block_last_id.shape[0], pin_memory=True,dtype=torch.int64)
-                if paper_100m==True:
-                    torch.index_select(train_dataloader.graph.ndata['label'].to(torch.int64), 0, block_last_id,out=y)
-                else:
-                    torch.index_select(train_dataloader.graph.ndata['label'], 0, block_last_id,out=y)
-                profile_time(slice_time)
-                x=x.to(device)
-                y=y.to(device)
-                profile_time(feature_data_trans)
-                
-                
+            x = torch.empty(block0_id.shape[0],in_size, pin_memory=True)
+            torch.index_select(train_dataloader.graph.ndata['feat'], 0, block0_id,out=x)
+            y = torch.empty(block_last_id.shape[0], pin_memory=True,dtype=torch.int64)
+            torch.index_select(train_dataloader.graph.ndata['label'], 0, block_last_id,out=y)
+            profile_time(slice_time)
+            x=x.to(device)
+            y=y.to(device)
+            profile_time(feature_data_trans)
             y_hat = model(blocks, x)
             loss = F.cross_entropy(y_hat, y)
             opt.zero_grad()
@@ -250,49 +210,41 @@ def train(args, device, g, dataset, model):
             opt.step()
             total_loss += loss.item()
             profile_time(train_time)
-            
         ## calculate the avg time of a list
         batch_prepare_time_avg = mean(batch_prepare_time[-80:-1])
         data_tansfer_time_avg = mean(data_tansfer_time[-80:-1])
         train_time_avg = mean(train_time[-80:-1])
         slice_time_avg = mean(slice_time[-80:-1])
         feature_data_transition_time_avg = mean(feature_data_trans[-80:-1])
-        block_pin_avg = mean(block_pin[-80:-1])
-        all_avg = batch_prepare_time_avg + data_tansfer_time_avg + train_time_avg+slice_time_avg+feature_data_transition_time_avg+block_pin_avg
-        
-        print('batch_prepare_time: ', batch_prepare_time)
-        print('block_pin: ', block_pin)
-        print('data_tansfer_time: ', data_tansfer_time)
-        print('slice_time: ', slice_time)
-        print('feature slice',feature_data_trans)
-        print('train_time: ', train_time)
+        all_avg = batch_prepare_time_avg + data_tansfer_time_avg + train_time_avg+slice_time_avg+feature_data_transition_time_avg
+        # print('batch_prepare_time: ', batch_prepare_time)
+        # print('block_pin: ', block_pin)
+        # print('data_tansfer_time: ', data_tansfer_time)
+        # print('slice_time: ', slice_time)
+        # print('feature slice',feature_data_trans)
+        # print('train_time: ', train_time)
         
         print('batch_prepare_time_avg: ', batch_prepare_time_avg)
-        print('block_pin_avg: ', block_pin_avg)
         print('data_tansfer_time_avg: ', data_tansfer_time_avg)
         print('slice_time_avg: ', slice_time_avg)
         print('feature_data_transition_time_avg: ', feature_data_transition_time_avg)
         print('train_time_avg: ', train_time_avg)
         print('all_avg: ', all_avg)
         avg_epoch_batch_prepare_time.append(batch_prepare_time_avg)
-        avg_epoch_block_pin.append(block_pin_avg)
         avg_epoch_data_tansfer_time.append(data_tansfer_time_avg)
         avg_epoch_slice_time.append(slice_time_avg)
         avg_epoch_feature_data_trans.append(feature_data_transition_time_avg)
         avg_epoch_train_time.append(train_time_avg)
-        
-                
+        avg_epoch_all_time.append(all_avg)
         acc = evaluate(model, g, val_dataloader)
         print("Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} "
               .format(epoch, total_loss / (it+1), acc.item()))
-        exit(0)
     print('avg_epoch_batch_prepare_time: ', mean(avg_epoch_batch_prepare_time))
-    print('avg_epoch_block_pin: ', mean(avg_epoch_block_pin))
     print('avg_epoch_data_tansfer_time: ', mean(avg_epoch_data_tansfer_time))
     print('avg_epoch_slice_time: ', mean(avg_epoch_slice_time))
     print('avg_epoch feature data trans',mean(avg_epoch_feature_data_trans))
     print('avg_epoch_train_time: ', mean(avg_epoch_train_time))
-    
+    print('avg_epoch_all_time: ', mean(avg_epoch_all_time))
     
     exit(0)
     
@@ -301,6 +253,7 @@ if __name__ == '__main__':
     parser.add_argument("--mode", default='mixed', choices=['cpu', 'mixed', 'puregpu'],
                         help="Training mode. 'cpu' for CPU training, 'mixed' for CPU-GPU mixed training, "
                              "'puregpu' for pure-GPU training.")
+    parser.add_argument('--dataset',choices=['ogbn-products','ogbn-papers100M','ogbn-arxiv'])
     args = parser.parse_args()
     if not torch.cuda.is_available():
         args.mode = 'cpu'
@@ -318,7 +271,7 @@ if __name__ == '__main__':
     # load and preprocess dataset
     print('Loading data')
     print(args.mode)
-    dataset_name='ogbn-products'
+    dataset_name=args.dataset
     dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
     print('dataset: ', dataset_name)
     g = dataset[0]
@@ -342,9 +295,3 @@ if __name__ == '__main__':
     
     proflie=True
     train(args, device, g, dataset, model)
-    
-
-    # test the model
-    print('Testing...')
-    acc = layerwise_infer(device, g, dataset.test_idx, model, batch_size=4096)
-    print("Test Accuracy {:.4f}".format(acc.item()))
