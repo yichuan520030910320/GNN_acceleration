@@ -110,7 +110,6 @@ def layerwise_infer(device, graph, nid, model, batch_size):
 
 
 def train(args, device, g, dataset, model):
-    
     random.seed(1)
     numpy.random.seed(1)
     torch.manual_seed(1)
@@ -139,7 +138,7 @@ def train(args, device, g, dataset, model):
         sampler,
         device=device,
         batch_size=1024,
-        shuffle=True,
+        shuffle=False,
         drop_last=False,
         num_workers=0,
         use_uva=use_uva,
@@ -150,17 +149,17 @@ def train(args, device, g, dataset, model):
         sampler,
         device=device,
         batch_size=1024,
-        shuffle=True,
+        shuffle=False,
         drop_last=False,
         num_workers=0,
         use_uva=use_uva,
     )
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
-    avg_epoch_batch_prepare_time=[]
+    avg_epoch_batch_prepare_time = []
     avg_epoch_train_time = []
     avg_epoch_slice_time = []
-    avg_epoch_all_time=[]
-    blocks[-1].dstdata["label"]=blocks[-1].dstdata["label"].to(torch.int64)
+    avg_epoch_all_time = []
+    blocks[-1].dstdata["label"] = blocks[-1].dstdata["label"].to(torch.int64)
     for epoch in range(5):
         model.train()
         total_loss = 0
@@ -207,7 +206,10 @@ def train(args, device, g, dataset, model):
                 )
                 train_dataloader.start_record_time.record(torch.cuda.current_stream())
             x = blocks[0].srcdata["feat"]
-            y = blocks[-1].dstdata["label"]
+            if paper_100m == True:
+                y = blocks[-1].dstdata["label"].to(torch.int64)
+            else:
+                y = blocks[-1].dstdata["label"]
             if train_dataloader.whether_time_time_cudaevent == 0:
                 torch.cuda.synchronize()
                 train_dataloader.end_record_time = time.time()
@@ -275,10 +277,10 @@ def train(args, device, g, dataset, model):
         print("slice_time_avg: ", slice_time_avg)
         print("train_time_avg: ", train_time_avg)
         print("all_avg: ", all_avg)
-        avg_epoch_batch_prepare_time.append(-1*sample_and_datatrans_avg)
-        avg_epoch_slice_time.append(-1*slice_time_avg)
-        avg_epoch_train_time.append(-1*train_time_avg)
-        avg_epoch_all_time.append(-1*all_avg)
+        avg_epoch_batch_prepare_time.append(-1 * sample_and_datatrans_avg)
+        avg_epoch_slice_time.append(-1 * slice_time_avg)
+        avg_epoch_train_time.append(-1 * train_time_avg)
+        avg_epoch_all_time.append(-1 * all_avg)
         # exit(0)
         acc = evaluate(model, g, val_dataloader)
         print(
@@ -286,10 +288,10 @@ def train(args, device, g, dataset, model):
                 epoch, total_loss / (it + 1), acc.item()
             )
         )
-    print('avg_epoch_batch_prepare_time: ', mean(avg_epoch_batch_prepare_time))
-    print('avg_epoch_slice_time: ', mean(avg_epoch_slice_time))
-    print('avg_epoch_train_time: ', mean(avg_epoch_train_time))
-    print('avg_epoch_all_time: ', mean(avg_epoch_all_time))
+    print("avg_epoch_batch_prepare_time: ", mean(avg_epoch_batch_prepare_time))
+    print("avg_epoch_slice_time: ", mean(avg_epoch_slice_time))
+    print("avg_epoch_train_time: ", mean(avg_epoch_train_time))
+    print("avg_epoch_all_time: ", mean(avg_epoch_all_time))
     exit(0)
 
 
@@ -302,14 +304,16 @@ if __name__ == "__main__":
         help="Training mode. 'cpu' for CPU training, 'mixed' for CPU-GPU mixed training, "
         "'puregpu' for pure-GPU training.",
     )
-    parser.add_argument('--dataset',choices=['ogbn-products','ogbn-papers100M','ogbn-arxiv'])
-    
+    parser.add_argument(
+        "--dataset", choices=["ogbn-products", "ogbn-papers100M", "ogbn-arxiv"]
+    )
+
     args = parser.parse_args()
 
     if not torch.cuda.is_available():
         args.mode = "cpu"
     print(f"Training in {args.mode} mode.")
-    
+
     import os
 
     filename = os.path.basename(__file__)
@@ -317,7 +321,7 @@ if __name__ == "__main__":
     # load and preprocess dataset
     print("Loading data")
     print(args.mode)
-    dataset_name =args.dataset
+    dataset_name = args.dataset
 
     whether_time_time_or_cudaevent = 0
     uva_or_not = True

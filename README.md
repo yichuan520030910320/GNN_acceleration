@@ -104,6 +104,9 @@ for epoch in range(1):
       total_loss += loss.item()
 ```
 
+> !NOTE: The following example and test result maybe out of date
+
+
 ## baseline result
 
 <!-- ![alt 属性文本]( https://files.slack.com/files-pri/TR41NUQES-F04PV6FCFSR/image.png)

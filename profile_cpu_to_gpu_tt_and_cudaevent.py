@@ -12,6 +12,7 @@ import argparse
 from numpy import *
 import numpy
 
+
 class SAGE(nn.Module):
     def __init__(self, in_size, hid_size, out_size):
         super().__init__()
@@ -114,7 +115,7 @@ def train(args, device, g, dataset, model):
         sampler,
         device=cpu_device,
         batch_size=1024,
-        shuffle=True,
+        shuffle=False,
         drop_last=False,
         num_workers=0,
         #   pin_prefetcher=True
@@ -128,20 +129,20 @@ def train(args, device, g, dataset, model):
         sampler,
         device=cpu_device,
         batch_size=1024,
-        shuffle=True,
+        shuffle=False,
         drop_last=False,
         num_workers=0,
     )
 
     val_dataloader.whether_time_time_cudaevent = whether_time_time_cudaevent
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
-    avg_epoch_batch_prepare_time=[]
+    avg_epoch_batch_prepare_time = []
     avg_epoch_data_tansfer_time = []
     avg_epoch_train_time = []
     avg_epoch_slice_time = []
-    avg_epoch_feature_data_trans=[]
-    avg_epoch_block_pin=[]
-    avg_epoch_all_time=[]
+    avg_epoch_feature_data_trans = []
+    avg_epoch_block_pin = []
+    avg_epoch_all_time = []
     for epoch in range(5):
         model.train()
         total_loss = 0
@@ -273,7 +274,7 @@ def train(args, device, g, dataset, model):
         print("data_tansfer_time_avg: ", data_tansfer_time_avg)
         print("train_time_avg: ", train_time_avg)
         print("all_avg: ", all_avg)
-        
+
         avg_epoch_batch_prepare_time.append(batch_prepare_time_avg)
         avg_epoch_slice_time.append(slice_time_avg)
         avg_epoch_feature_data_trans.append(feature_data_transition_time_avg)
@@ -287,13 +288,13 @@ def train(args, device, g, dataset, model):
         #         epoch, total_loss / (it + 1), acc.item()
         #     )
         # )
-    print('avg_epoch_batch_prepare_time: ', mean(avg_epoch_batch_prepare_time))
-    print('avg_epoch_data_tansfer_time: ', mean(avg_epoch_data_tansfer_time))
-    print('avg_epoch_slice_time: ', mean(avg_epoch_slice_time))
-    print('avg_epoch feature data trans',mean(avg_epoch_feature_data_trans))
-    print('avg_epoch_train_time: ', mean(avg_epoch_train_time))
-    print('avg_epoch_all_time: ', mean(avg_epoch_all_time))
-    
+    print("avg_epoch_batch_prepare_time: ", mean(avg_epoch_batch_prepare_time))
+    print("avg_epoch_data_tansfer_time: ", mean(avg_epoch_data_tansfer_time))
+    print("avg_epoch_slice_time: ", mean(avg_epoch_slice_time))
+    print("avg_epoch feature data trans", mean(avg_epoch_feature_data_trans))
+    print("avg_epoch_train_time: ", mean(avg_epoch_train_time))
+    print("avg_epoch_all_time: ", mean(avg_epoch_all_time))
+
     exit(0)
 
 
@@ -306,8 +307,10 @@ if __name__ == "__main__":
         help="Training mode. 'cpu' for CPU training, 'mixed' for CPU-GPU mixed training, "
         "'puregpu' for pure-GPU training.",
     )
-    parser.add_argument('--dataset',choices=['ogbn-products','ogbn-papers100M','ogbn-arxiv'])
-    
+    parser.add_argument(
+        "--dataset", choices=["ogbn-products", "ogbn-papers100M", "ogbn-arxiv"]
+    )
+
     args = parser.parse_args()
     if not torch.cuda.is_available():
         args.mode = "cpu"
@@ -325,7 +328,7 @@ if __name__ == "__main__":
     # load and preprocess dataset
     print("Loading data")
     print(args.mode)
-    dataset_name =args.dataset
+    dataset_name = args.dataset
     dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
     print("dataset: ", dataset_name)
     g = dataset[0]

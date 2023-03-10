@@ -4,12 +4,6 @@ avg_wo_pin=[]
 avg_w_pin=[]
 
 SIZE=128
-    # Define the size of the tensor
-    # N =32 * 10
-    # C = 10
-    # H = 10
-    # W = 128
-    
 N=SIZE
 C=SIZE
 H=SIZE
