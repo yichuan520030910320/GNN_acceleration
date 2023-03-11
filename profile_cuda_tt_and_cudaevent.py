@@ -159,7 +159,6 @@ def train(args, device, g, dataset, model):
     avg_epoch_train_time = []
     avg_epoch_slice_time = []
     avg_epoch_all_time = []
-    blocks[-1].dstdata["label"] = blocks[-1].dstdata["label"].to(torch.int64)
     for epoch in range(5):
         model.train()
         total_loss = 0

@@ -34,6 +34,18 @@ note: this command was used to profile CPU sampling(wo pin the slice feature) bu
 ![profile_result.png](https://s2.loli.net/2023/03/10/WNrUEAfvPznRg1u.png)
 
 ### configuration 
+
+$$
+\begin{array}{lcccc}
+\hline \text { Dataset } & |\mathcal{V}| & |\mathcal{E}| & \text { Dim. } & \text { \#Class } \\
+\hline \text { ogbn-arxiv  } & 2.9 \mathrm{M} & 30.4 \mathrm{M} & 128 & 64 \\
+\text { ogbn-products  } & 2.4 \mathrm{M} & 123 \mathrm{M} & 100 & 47 \\
+\text { ogbn-papers100M  } & 111 \mathrm{M} & 1.6 \mathrm{~B} & 128 & 172
+\end{array}
+$$
+
+* Weihua Hu, Matthias Fey, Marinka Zitnik, Yuxiao Dong, Hongyu Ren, Bowen Liu, Michele Catasta, and Jure Leskovec. Open graph benchmark: Datasets for machine learning on graphs. Advances in Neural Information Processing Systems, 33:22118–22133, 2020.
+
 batch size:1024,
 neighbor size:[15, 10, 5],  # fanout for [layer-0, layer-1, layer-2],
 number of layers:3 
