@@ -70,9 +70,9 @@ Block(num_src_nodes=57939, num_dst_nodes=6073, num_edges=60159)
 2:
 Block(num_src_nodes=6073, num_dst_nodes=1024, num_edges=5114)
 
-papers100M:0.18653801159561606
+papers100M:0.00456837
 
-> graph:Graph(num_nodes=2449029, num_edges=123718280
+> graph:Graph(num_nodes=111 Million)
 0:
 Block(num_src_nodes=456837, num_dst_nodes=57824, num_edges=849863)
 1:

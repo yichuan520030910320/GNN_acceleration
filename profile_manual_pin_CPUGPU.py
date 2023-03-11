@@ -163,10 +163,13 @@ def train(args, device, g, dataset, model):
     )
 
     val_dataloader.whether_time_time_cudaevent = whether_time_time_cudaevent
-
     train_dataloader.graph.ndata["label"] = train_dataloader.graph.ndata["label"].to(
         torch.int64
     )
+    train_dataloader.graph.ndata["feat"] = train_dataloader.graph.ndata["feat"].pin_memory()
+    train_dataloader.graph.ndata["label"] = train_dataloader.graph.ndata["label"].pin_memory()
+    
+
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
     avg_epoch_batch_prepare_time = []
     avg_epoch_data_tansfer_time = []
@@ -221,6 +224,7 @@ def train(args, device, g, dataset, model):
 
         for it, (input_nodes, output_nodes, blocks) in enumerate(train_dataloader):
             print("it: ", it)
+            
             if it > 100:
                 break
             profile_time(batch_prepare_time)
@@ -309,7 +313,7 @@ if __name__ == "__main__":
         "'puregpu' for pure-GPU training.",
     )
     parser.add_argument(
-        "--dataset", choices=["ogbn-products", "ogbn-papers100M", "ogbn-arxiv"]
+        "--dataset", default='ogbn-papers100M',choices=["ogbn-products", "ogbn-papers100M", "ogbn-arxiv"]
     )
     args = parser.parse_args()
     if not torch.cuda.is_available():
