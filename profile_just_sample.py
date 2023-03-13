@@ -199,7 +199,7 @@ if __name__ == "__main__":
         "'puregpu' for pure-GPU training.",
     )
     parser.add_argument(
-        "--dataset", default='ogbn-products',choices=["ogbn-products", "ogbn-papers100M", "ogbn-arxiv",'ogbn-mag','ogbn-proteins']
+        "--dataset", default='ogbn-papers100M',choices=["ogbn-products", "ogbn-papers100M", "ogbn-arxiv",'ogbn-mag','ogbn-proteins']
     )
     args = parser.parse_args()
     if not torch.cuda.is_available():
@@ -219,7 +219,9 @@ if __name__ == "__main__":
     print("Loading data")
     print(args.mode)
     dataset_name = args.dataset
-    dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
+    from dgl.data.dgl_dataset.DGLBuiltinDataset import DglNodePropPredDataset
+    # dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
+    dataset= RedditDataset()
     print("dataset: ", dataset_name)
     g = dataset[0]
     print('g.device: ', g.device)

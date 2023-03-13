@@ -12,7 +12,7 @@ import argparse
 from numpy import *
 import time
 import numpy
-
+import contextlib
 
 sample_and_datatrans = []
 data_tansfer_time = []
@@ -99,6 +99,25 @@ def evaluate(model, graph, dataloader):
         torch.cat(y_hats), torch.cat(ys), task="multiclass", num_classes=out_size
     )
 
+@contextlib.contextmanager
+def with_profile_time(records, whether_time_time_cudaevent=2):
+    if whether_time_time_cudaevent == 2:
+        torch.cuda.synchronize()
+        start = time.time()
+        yield
+        torch.cuda.synchronize()
+        end = time.time()
+        records.append((end - start) * 1000)
+    elif whether_time_time_cudaevent == 3:
+        start_event = torch.cuda.Event(enable_timing=True)
+        end_event = torch.cuda.Event(enable_timing=True)
+        torch.cuda.synchronize()
+        start_event.record(torch.cuda.current_stream())
+        yield
+        end_event.record(torch.cuda.current_stream())
+        end_event.synchronize()
+        step_elapsed = start_event.elapsed_time(end_event)
+        records.append(step_elapsed)
 
 def layerwise_infer(device, graph, nid, model, batch_size):
     model.eval()
@@ -271,7 +290,6 @@ def train(args, device, g, dataset, model):
         print("sample_and_datatrans: ", train_dataloader.sample_and_datatrans_time)
         print("slice_time: ", train_dataloader.slice_time)
         print("train_time: ", train_dataloader.train_time)
-
         print("sample_and_datatrans_avg: ", sample_and_datatrans_avg)
         print("slice_time_avg: ", slice_time_avg)
         print("train_time_avg: ", train_time_avg)

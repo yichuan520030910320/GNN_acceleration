@@ -35,14 +35,20 @@ note: this command was used to profile CPU sampling(wo pin the slice feature) bu
 
 ### configuration 
 
-$$
+<!-- $$
 \begin{array}{lcccc}
 \hline \text { Dataset } & |\mathcal{V}| & |\mathcal{E}| & \text { Dim. } & \text { \#Class } \\
 \hline \text { ogbn-arxiv  } & 2.9 \mathrm{M} & 30.4 \mathrm{M} & 128 & 64 \\
 \text { ogbn-products  } & 2.4 \mathrm{M} & 123 \mathrm{M} & 100 & 47 \\
 \text { ogbn-papers100M  } & 111 \mathrm{M} & 1.6 \mathrm{~B} & 128 & 172
 \end{array}
-$$
+$$ -->
+
+| Data Set | #Nodes | #Edges | #Feat. | Train. / Val. / Test |
+| :--- | :---: | :---: | :---: | :---: |
+| arxiv | 169K | 1.2M | 128 | 91K//30K//48K |
+| products | 2.4M | 62M | 100 | 197K//39K//2.2M |
+| papers | 111M | 1.6B | 128 | 1.2M//125K//214K |
 
 * Weihua Hu, Matthias Fey, Marinka Zitnik, Yuxiao Dong, Hongyu Ren, Bowen Liu, Michele Catasta, and Jure Leskovec. Open graph benchmark: Datasets for machine learning on graphs. Advances in Neural Information Processing Systems, 33:22118–22133, 2020.
 
