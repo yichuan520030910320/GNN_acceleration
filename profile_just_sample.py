@@ -168,107 +168,24 @@ def train(args, device, g, dataset, model):
     )
     train_dataloader.graph.ndata["feat"] = train_dataloader.graph.ndata["feat"].pin_memory()
     train_dataloader.graph.ndata["label"] = train_dataloader.graph.ndata["label"].pin_memory()
-    
-
-    opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
-    avg_epoch_batch_prepare_time = []
-    avg_epoch_data_tansfer_time = []
-    avg_epoch_train_time = []
-    avg_epoch_slice_time = []
-    avg_epoch_feature_data_trans = []
-    avg_epoch_all_time = []
+    avg_sample=[]
     for epoch in range(5):
         model.train()
-        total_loss = 0
-        import time
-
-        if train_dataloader.whether_time_time_cudaevent == 3:
-            torch.cuda.synchronize()
-            start_time = time.time()
-        elif train_dataloader.whether_time_time_cudaevent == 2:
-            start_event = torch.cuda.Event(enable_timing=True)
-            end_event = torch.cuda.Event(enable_timing=True)
-            torch.cuda.synchronize()
-            start_event.record(torch.cuda.current_stream())
-        batch_prepare_time = []
-        data_tansfer_time = []
-        train_time = []
-        slice_time = []
-        feature_data_trans = []
-        block_pin = []
-        allocate_slice_time=[]
-        it=0
+        i=0
+        sample_time=[]
+        
         while True:
-            if it > 100:
-                break
-            with with_profile_time(batch_prepare_time,whether_time_time_cudaevent=whether_time_time_cudaevent):
+            print('i',i)
+            i+=1
+            with with_profile_time(sample_time,whether_time_time_cudaevent=whether_time_time_cudaevent):
                 (input_nodes, output_nodes, blocks) =next(iter(train_dataloader))
-          
-            print("it: ", it)
-            it+=1
-            
-            with with_profile_time(data_tansfer_time, whether_time_time_cudaevent=whether_time_time_cudaevent):
-                block0_id = blocks[0].srcdata["_ID"]
-                block_last_id = blocks[-1].dstdata["_ID"]
-                blocks = [b.to(device) for b in blocks]
-            with with_profile_time(slice_time, whether_time_time_cudaevent=whether_time_time_cudaevent):
-                x = torch.empty(block0_id.shape[0], in_size, pin_memory=True)
-                y = torch.empty(block_last_id.shape[0], pin_memory=True, dtype=torch.int64)
-                torch.index_select(
-                    train_dataloader.graph.ndata["feat"], 0, block0_id, out=x
-                )
-                torch.index_select(
-                    train_dataloader.graph.ndata["label"], 0, block_last_id, out=y
-                )
-            with with_profile_time(feature_data_trans, whether_time_time_cudaevent=whether_time_time_cudaevent):
-                x = x.to(device)
-                y = y.to(device)
-            with with_profile_time(train_time, whether_time_time_cudaevent=whether_time_time_cudaevent):
-                y_hat = model(blocks, x)
-                loss = F.cross_entropy(y_hat, y)
-                opt.zero_grad()
-                loss.backward()
-                opt.step()
-                total_loss += loss.item()
-        ## calculate the avg time of a list
-        batch_prepare_time_avg = mean(batch_prepare_time[-80:-1])
-        data_tansfer_time_avg = mean(data_tansfer_time[-80:-1])
-        train_time_avg = mean(train_time[-80:-1])
-        slice_time_avg = mean(slice_time[-80:-1])
-        feature_data_transition_time_avg = mean(feature_data_trans[-80:-1])
-        all_avg = (
-            batch_prepare_time_avg
-            + data_tansfer_time_avg
-            + train_time_avg
-            + slice_time_avg
-            + feature_data_transition_time_avg
-        )
-
-        print("batch_prepare_time_avg: ", batch_prepare_time_avg)
-        print("data_tansfer_time_avg: ", data_tansfer_time_avg)
-        print("slice_time_avg: ", slice_time_avg)
-        print("feature_data_transition_time_avg: ", feature_data_transition_time_avg)
-        print("train_time_avg: ", train_time_avg)
-        print("all_avg: ", all_avg)
-        avg_epoch_batch_prepare_time.append(batch_prepare_time_avg)
-        avg_epoch_data_tansfer_time.append(data_tansfer_time_avg)
-        avg_epoch_slice_time.append(slice_time_avg)
-        avg_epoch_feature_data_trans.append(feature_data_transition_time_avg)
-        avg_epoch_train_time.append(train_time_avg)
-        avg_epoch_all_time.append(all_avg)
-        acc = evaluate(model, g, val_dataloader)
-        print(
-            "Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} ".format(
-                epoch, total_loss / (it + 1), acc.item()
-            )
-        )
-    print("avg_epoch_batch_prepare_time: ", mean(avg_epoch_batch_prepare_time))
-    print("avg_epoch_data_tansfer_time: ", mean(avg_epoch_data_tansfer_time))
-    print("avg_epoch_slice_time: ", mean(avg_epoch_slice_time))
-    print("avg_epoch feature data trans", mean(avg_epoch_feature_data_trans))
-    print("avg_epoch_train_time: ", mean(avg_epoch_train_time))
-    print("avg_epoch_all_time: ", mean(avg_epoch_all_time))
-
+            if i>100:
+                avg_sample_time = sum(sample_time[-80:-1])/len(sample_time[-80:-1])
+                avg_sample.append(avg_sample_time)
+                break
+        
+    print('sample_time',avg_sample)
+    print('sample_time',sum(avg_sample)/len(avg_sample))
     exit(0)
 
 
@@ -294,7 +211,7 @@ if __name__ == "__main__":
     print("whether_time_time_cudaevent: ", whether_time_time_cudaevent)
 
     import os
-
+    print("current pid",os.getpid())
     filename = os.path.basename(__file__)
     print(filename)
 
@@ -305,6 +222,7 @@ if __name__ == "__main__":
     dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
     print("dataset: ", dataset_name)
     g = dataset[0]
+    print('g.device: ', g.device)
     # g = g.to("cuda" if args.mode == "puregpu" else "cpu")
     device = torch.device("cpu" if args.mode == "cpu" else "cuda")
 

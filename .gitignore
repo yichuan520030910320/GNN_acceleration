@@ -6,6 +6,10 @@ log3/
 log4/
 log5/
 reproduce/
+reproduce_product/
+reproduce_paper/
 reproduce_gpu/
 reproduce_gpu_wo_uva/
 benchmark/
+*.svg
+*.log
