@@ -134,7 +134,7 @@ def train(args, device, g, dataset, model):
     sampler = NeighborSampler([15, 10, 5])
     use_uva = args.mode == "mixed"
     pin_prefetcher_ = True
-    num_worker=[0,1,2,4,8,16,32,64]
+    num_worker=[0,1,2,4,8,16,32,64,128]
     torch.multiprocessing.set_sharing_strategy('file_system')
     for num_workers in num_worker:
         print("num_workers: ", num_workers)
@@ -177,6 +177,7 @@ def train(args, device, g, dataset, model):
                         pass
         print ('i iteration',i)
         print('num workers',num_workers)
+        print('amortized time',sum(sample_per_epoch)/len(sample_per_epoch)/i)
         print('sample_per_epoch',sample_per_epoch)
         print('average sample_per_epoch',sum(sample_per_epoch)/len(sample_per_epoch))
         print(f'through put: {i/(sum(sample_per_epoch)/len(sample_per_epoch))} sample per ms')
