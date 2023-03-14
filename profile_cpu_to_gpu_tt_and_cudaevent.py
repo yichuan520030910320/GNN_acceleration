@@ -211,6 +211,8 @@ def train(args, device, g, dataset, model):
                     y, dgl_slice_time, dgl_feature_trans_time = blocks[-1].dstdata[
                         "label"
                     ]
+                    if args.dataset=='yelp':
+                        y=y.to(torch.float64)
                     slice_time[-1] += dgl_slice_time
                     feature_data_trans[-1] += dgl_feature_trans_time
             else:
@@ -308,7 +310,7 @@ if __name__ == "__main__":
         "'puregpu' for pure-GPU training.",
     )
     parser.add_argument(
-        "--dataset", choices=["ogbn-products", "ogbn-papers100M", "ogbn-arxiv"]
+        "--dataset", default='ogbn-products',choices=["ogbn-products", "ogbn-papers100M", "ogbn-arxiv",'ogbn-mag','ogbn-proteins','reddit','yelp']
     )
 
     args = parser.parse_args()
@@ -329,7 +331,12 @@ if __name__ == "__main__":
     print("Loading data")
     print(args.mode)
     dataset_name = args.dataset
-    dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
+    if dataset_name == "reddit":
+        dataset =  AsNodePredDataset(dgl.data.RedditDataset())
+    elif dataset_name == "yelp":
+        dataset = AsNodePredDataset(dgl.data.YelpDataset())
+    else:
+        dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
     print("dataset: ", dataset_name)
     g = dataset[0]
     g = g.to("cuda" if args.mode == "puregpu" else "cpu")

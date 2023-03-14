@@ -52,6 +52,9 @@ $$ -->
 
 * Weihua Hu, Matthias Fey, Marinka Zitnik, Yuxiao Dong, Hongyu Ren, Bowen Liu, Michele Catasta, and Jure Leskovec. Open graph benchmark: Datasets for machine learning on graphs. Advances in Neural Information Processing Systems, 33:22118–22133, 2020.
 
+![profile_result.png](https://app.yinxiang.com/FileSharing.action?hash=1/f968da8cb22f20c08f9c86311a6bea02-64995)
+
+
 batch size:1024,
 neighbor size:[15, 10, 5],  # fanout for [layer-0, layer-1, layer-2],
 number of layers:3 
@@ -59,6 +62,11 @@ number of layers:3
 #### sampled subgraph size compared to the whole graph：
 
 arxiv: 0.15153859326928187
+
+num of nodes:  169343
+
+num of edges:  1166243
+
 
 > Graph=169343
 0:Block(num_src_nodes=25662, num_dst_nodes=10752, num_edges=36362)
@@ -69,6 +77,10 @@ Block(num_src_nodes=3611, num_dst_nodes=1024, num_edges=2641)
 
 products : 0.18791365884193287
 
+num of nodes:  2449029
+
+num of edges:  123718280
+
 > all_node=2449029
 0:Block(num_src_nodes=460206, num_dst_nodes=57939, num_edges=850617)
 1:
@@ -78,6 +90,9 @@ Block(num_src_nodes=6073, num_dst_nodes=1024, num_edges=5114)
 
 papers100M:0.00456837
 
+num of nodes:  111059956
+
+num of edges:  1615685872
 > graph:Graph(num_nodes=111 Million)
 0:
 Block(num_src_nodes=456837, num_dst_nodes=57824, num_edges=849863)
@@ -87,6 +102,21 @@ Block(num_src_nodes=57824, num_dst_nodes=6077, num_edges=60214)
 Block(num_src_nodes=6077, num_dst_nodes=1024, num_edges=5106)
 
 
+
+dataset:  reddit
+
+num of nodes:  232965
+
+num of edges:  114615892
+> blocks:  [Block(num_src_nodes=88624, num_dst_nodes=19116, num_edges=274518), Block(num_src_nodes=19116, num_dst_nodes=3450, num_edges=28082), Block(num_src_nodes=3450, num_dst_nodes=1024, num_edges=3008)]
+
+dataset: yelp
+
+num of nodes:  716847
+
+num of edges:  13954819
+
+>[Block(num_src_nodes=170222, num_dst_nodes=29026, num_edges=372987), Block(num_src_nodes=29026, num_dst_nodes=4401, num_edges=36807), Block(num_src_nodes=4401, num_dst_nodes=1024, num_edges=4196)]
 core code
 ```
 train_dataloader = DataLoader(g, train_idx, sampler, device=cpu_device,

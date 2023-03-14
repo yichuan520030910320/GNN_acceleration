@@ -76,14 +76,14 @@ class SAGE(nn.Module):
 
 @contextlib.contextmanager
 def with_profile_time(records, whether_time_time_cudaevent=2):
-    if whether_time_time_cudaevent == 2:
+    if whether_time_time_cudaevent == 3:
         torch.cuda.synchronize()
         start = time.time()
         yield
         torch.cuda.synchronize()
         end = time.time()
         records.append((end - start) * 1000)
-    elif whether_time_time_cudaevent == 3:
+    elif whether_time_time_cudaevent == 2:
         start_event = torch.cuda.Event(enable_timing=True)
         end_event = torch.cuda.Event(enable_timing=True)
         torch.cuda.synchronize()
@@ -105,6 +105,7 @@ def evaluate(model, graph, dataloader):
             x = blocks[0].srcdata["feat"]
             ys.append(blocks[-1].dstdata["label"])
             y_hats.append(model(blocks, x))
+    # import pdb; pdb.set_trace()
     return MF.accuracy(
         torch.cat(y_hats), torch.cat(ys), task="multiclass", num_classes=out_size
     )
@@ -166,10 +167,14 @@ def train(args, device, g, dataset, model):
     train_dataloader.graph.ndata["label"] = train_dataloader.graph.ndata["label"].to(
         torch.int64
     )
+    if args.dataset=='yelp':
+        train_dataloader.graph.ndata["label"] = train_dataloader.graph.ndata["label"].to(
+        torch.float64
+    )
     train_dataloader.graph.ndata["feat"] = train_dataloader.graph.ndata["feat"].pin_memory()
     train_dataloader.graph.ndata["label"] = train_dataloader.graph.ndata["label"].pin_memory()
     
-
+    # import pdb; pdb.set_trace()
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
     avg_epoch_batch_prepare_time = []
     avg_epoch_data_tansfer_time = []
@@ -203,8 +208,10 @@ def train(args, device, g, dataset, model):
                 break
             with with_profile_time(batch_prepare_time,whether_time_time_cudaevent=whether_time_time_cudaevent):
                 (input_nodes, output_nodes, blocks) =next(iter(train_dataloader))
-          
-            print("it: ", it)
+            if epoch == 0 and it==1:
+                print('blocks: ', blocks)
+            if it%50==0:
+                print("it: ", it)
             it+=1
             
             with with_profile_time(data_tansfer_time, whether_time_time_cudaevent=whether_time_time_cudaevent):
@@ -213,7 +220,10 @@ def train(args, device, g, dataset, model):
                 blocks = [b.to(device) for b in blocks]
             with with_profile_time(slice_time, whether_time_time_cudaevent=whether_time_time_cudaevent):
                 x = torch.empty(block0_id.shape[0], in_size, pin_memory=True)
-                y = torch.empty(block_last_id.shape[0], pin_memory=True, dtype=torch.int64)
+                if args.dataset=='yelp':
+                    y = torch.empty((block_last_id.shape[0],100), pin_memory=True, dtype=torch.float64)
+                else:
+                    y = torch.empty(block_last_id.shape[0], pin_memory=True, dtype=torch.int64)
                 torch.index_select(
                     train_dataloader.graph.ndata["feat"], 0, block0_id, out=x
                 )
@@ -250,12 +260,13 @@ def train(args, device, g, dataset, model):
         print("feature_data_transition_time_avg: ", feature_data_transition_time_avg)
         print("train_time_avg: ", train_time_avg)
         print("all_avg: ", all_avg)
-        avg_epoch_batch_prepare_time.append(batch_prepare_time_avg)
-        avg_epoch_data_tansfer_time.append(data_tansfer_time_avg)
-        avg_epoch_slice_time.append(slice_time_avg)
-        avg_epoch_feature_data_trans.append(feature_data_transition_time_avg)
-        avg_epoch_train_time.append(train_time_avg)
-        avg_epoch_all_time.append(all_avg)
+        if epoch!=0:
+            avg_epoch_batch_prepare_time.append(batch_prepare_time_avg)
+            avg_epoch_data_tansfer_time.append(data_tansfer_time_avg)
+            avg_epoch_slice_time.append(slice_time_avg)
+            avg_epoch_feature_data_trans.append(feature_data_transition_time_avg)
+            avg_epoch_train_time.append(train_time_avg)
+            avg_epoch_all_time.append(all_avg)
         acc = evaluate(model, g, val_dataloader)
         print(
             "Epoch {:05d} | Loss {:.4f} | Accuracy {:.4f} ".format(
@@ -268,7 +279,8 @@ def train(args, device, g, dataset, model):
     print("avg_epoch feature data trans", mean(avg_epoch_feature_data_trans))
     print("avg_epoch_train_time: ", mean(avg_epoch_train_time))
     print("avg_epoch_all_time: ", mean(avg_epoch_all_time))
-
+    print('num of nodes: ', g.number_of_nodes())
+    print('num of edges: ', g.number_of_edges())
     exit(0)
 
 
@@ -306,13 +318,17 @@ if __name__ == "__main__":
     
     # import DglNodePropPredDataset
     # dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
-    dataset = dgl.data.RedditDataset()
-    
+    if dataset_name == "reddit":
+        dataset =  AsNodePredDataset(dgl.data.RedditDataset())
+    elif dataset_name == "yelp":
+        dataset = AsNodePredDataset(dgl.data.YelpDataset())
+    else:
+        dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
     print("dataset: ", dataset_name)
     g = dataset[0]
     
-    print('g num of nodes: ', g.number_of_nodes())
-    print(' g num of edges: ', g.number_of_edges())
+    print('num of nodes: ', g.number_of_nodes())
+    print('num of edges: ', g.number_of_edges())
     # g = g.to("cuda" if args.mode == "puregpu" else "cpu")
     device = torch.device("cpu" if args.mode == "cpu" else "cuda")
 

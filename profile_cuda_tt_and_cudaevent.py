@@ -173,6 +173,7 @@ def train(args, device, g, dataset, model):
         num_workers=0,
         use_uva=use_uva,
     )
+    
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=5e-4)
     avg_epoch_batch_prepare_time = []
     avg_epoch_train_time = []
@@ -224,7 +225,9 @@ def train(args, device, g, dataset, model):
                 )
                 train_dataloader.start_record_time.record(torch.cuda.current_stream())
             x = blocks[0].srcdata["feat"]
-            if paper_100m == True:
+            if args.dataset=='yelp':
+                y=blocks[-1].dstdata["label"].to(torch.float64)
+            elif paper_100m == True:
                 y = blocks[-1].dstdata["label"].to(torch.int64)
             else:
                 y = blocks[-1].dstdata["label"]
@@ -322,7 +325,7 @@ if __name__ == "__main__":
         "'puregpu' for pure-GPU training.",
     )
     parser.add_argument(
-        "--dataset", choices=["ogbn-products", "ogbn-papers100M", "ogbn-arxiv"]
+        "--dataset", default='ogbn-products',choices=["ogbn-products", "ogbn-papers100M", "ogbn-arxiv",'ogbn-mag','ogbn-proteins','reddit','yelp']
     )
 
     args = parser.parse_args()
@@ -345,7 +348,12 @@ if __name__ == "__main__":
     print("whether_time_time_or_cudaevent: ", whether_time_time_or_cudaevent)
     print("uva_or_not: ", uva_or_not)
     print("dataset_name: ", dataset_name)
-    dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
+    if dataset_name == "reddit":
+        dataset =  AsNodePredDataset(dgl.data.RedditDataset())
+    elif dataset_name == "yelp":
+        dataset = AsNodePredDataset(dgl.data.YelpDataset())
+    else:
+        dataset = AsNodePredDataset(DglNodePropPredDataset(dataset_name))
     print("dataset: ", dataset_name)
     g = dataset[0]
     g = g.to("cuda" if args.mode == "puregpu" else "cpu")

@@ -207,6 +207,9 @@ def train(args, device, g, dataset, model):
             print("it: ", it)
             it+=1
             
+            if epoch==1 and it==1:
+                print("blocks: ", blocks)
+            
             with with_profile_time(data_tansfer_time, whether_time_time_cudaevent=whether_time_time_cudaevent):
                 block0_id = blocks[0].srcdata["_ID"]
                 block_last_id = blocks[-1].dstdata["_ID"]
